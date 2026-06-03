@@ -62,6 +62,14 @@ function renderTasks(tasks) {
             <td>
                 ${task.dueDate || "-"}
             </td>
+            <td>
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    onclick="openTask(${task.taskId})">
+                    Edit
+                </button>
+            </td>
         `;
 
         table.appendChild(row);
@@ -94,4 +102,10 @@ function getStatusClass(status) {
     if (status === "CANCELLED")
         return "cancelled";
     return "";
+}
+
+function openTask(taskId) {
+
+    window.location.href =
+        `/task-details.html?id=${taskId}`;
 }
