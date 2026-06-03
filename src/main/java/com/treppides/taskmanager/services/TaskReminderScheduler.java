@@ -14,11 +14,97 @@ import java.util.List;
 public class TaskReminderScheduler {
 
     private final TaskRepository taskRepository;
-    private final TaskAssignmentRepository taskassignmentRepositroy;
-    
+    private final TaskAssignmentRepository taskAssignmentRepository;  
+      
     public TaskReminderScheduler(TaskRepository taskRepository, TaskAssignmentRepository taskassignmentRepositroy) {
         this.taskRepository = taskRepository;
-        this.taskassignmentRepositroy = taskassignmentRepositroy;
+        this.taskAssignmentRepository = taskassignmentRepositroy;
     
+    }
+
+    @Scheduled(cron = "0 0 8 * * *") 
+    public void checkUpComingDueTasks() {
+       List<Task> tasks = taskRepository.findByDueDateIsNotNullAndStatusNotIn(List.of("COMPLETED", "CANCELLED"));
+        LocalDate today = LocalDate.now();
+    }
+
+        private String getReminderType(Task task, LocalDate today) {
+
+        if (task.getDueDate() == null) {
+            return null;
+        }
+
+        LocalDate dueDate = task.getDueDate();
+        String priority = task.getPriority();
+
+        if ("HIGH".equals(priority)) {
+
+            if (today.equals(subtractWorkingDays(dueDate, 5))) {
+                return "HIGH_5_WORKING_DAYS";
+            }
+
+            if (today.equals(dueDate.minusDays(3))) {
+                return "HIGH_3_DAYS";
+            }
+
+            if (today.equals(dueDate.minusDays(1))) {
+                return "HIGH_1_DAY";
+            }
+        }
+
+        if ("MEDIUM".equals(priority)) {
+
+            if (today.equals(dueDate.minusDays(3))) {
+                return "MEDIUM_3_DAYS";
+            }
+
+            if (today.equals(dueDate.minusDays(1))) {
+                return "MEDIUM_1_DAY";
+            }
+        }
+
+        if ("LOW".equals(priority)) {
+
+            if (today.equals(dueDate.minusDays(1))) {
+                return "LOW_1_DAY";
+            }
+        }
+
+        return null;
+    }
+
+        private LocalDate subtractWorkingDays(LocalDate date, int workingDays) {
+
+        LocalDate result = date;
+        int remaining = workingDays;
+
+        while (remaining > 0) {
+
+            result = result.minusDays(1);
+
+            if (result.getDayOfWeek().getValue() < 6) {
+                remaining--;
+            }
+        }
+
+        return result;
+    }
+
+        private void notifyAssignees(Task task, String reminderType) {
+
+        List<TaskAssignment> assignments =
+                taskAssignmentRepository.findByTask_TaskId(task.getTaskId());
+
+        for (TaskAssignment assignment : assignments) {
+
+            System.out.println(
+                    "Reminder would be sent: "
+                            + reminderType
+                            + " | Task: "
+                            + task.getTitle()
+                            + " | To: "
+                            + assignment.getAssignedTo().getEmail()
+            );
+        }
     }
 }

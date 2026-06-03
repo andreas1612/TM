@@ -17,4 +17,6 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
         WHERE e.SUPERVISORID = :email
     """, nativeQuery = true)
     List<Task> findTasksForTeam(@Param("email") String email);
+
+    List<Task> findByDueDateIsNotNullAndStatusNotIn(List<String> statuses);
 }
