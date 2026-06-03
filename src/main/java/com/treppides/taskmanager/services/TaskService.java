@@ -88,7 +88,7 @@ public class TaskService {
                 assignment.setAssignedTo(employee);
 
                 taskAssignmentRepository.save(assignment);
-                notificationService.sendTaskAssignedEmail(employee, savedTask);
+                notificationService.sendTaskAssignedEmail(employee, task);
             }
         }
 
