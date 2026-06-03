@@ -14,15 +14,18 @@ import java.util.List;
 public class TaskReminderScheduler {
 
     private final TaskRepository taskRepository;
-    private final TaskAssignmentRepository taskAssignmentRepository;  
+    private final TaskAssignmentRepository taskAssignmentRepository;
+    private final NotificationService notificationService;
 
-    public TaskReminderScheduler(TaskRepository taskRepository, TaskAssignmentRepository taskassignmentRepositroy) {
+    public TaskReminderScheduler(TaskRepository taskRepository,
+                                 TaskAssignmentRepository taskAssignmentRepository,
+                                 NotificationService notificationService) {
         this.taskRepository = taskRepository;
-        this.taskAssignmentRepository = taskassignmentRepositroy;
-    
+        this.taskAssignmentRepository = taskAssignmentRepository;
+        this.notificationService = notificationService;
     }
 
-    @Scheduled(cron = "0 0 8 * * *") 
+    @Scheduled(cron = "0 0 8 * * *")
     public void checkUpComingDueTasks() {
 
         System.out.println("Scheduler running...");
@@ -60,14 +63,17 @@ public class TaskReminderScheduler {
         }
     }
 
-        private String getReminderType(Task task, LocalDate today) {
+    private String getReminderType(Task task, LocalDate today) {
 
         if (task.getDueDate() == null) {
             return null;
         }
 
-        LocalDate dueDate = task.getDueDate();
-        String priority = task.getPriority();
+        LocalDate dueDate =
+                task.getDueDate();
+
+        String priority =
+                task.getPriority();
 
         if ("HIGH".equals(priority)) {
 
@@ -105,14 +111,18 @@ public class TaskReminderScheduler {
         return null;
     }
 
-        private LocalDate subtractWorkingDays(LocalDate date, int workingDays) {
+    private LocalDate subtractWorkingDays(LocalDate date, int workingDays) {
 
-        LocalDate result = date;
-        int remaining = workingDays;
+        LocalDate result =
+                date;
+
+        int remaining =
+                workingDays;
 
         while (remaining > 0) {
 
-            result = result.minusDays(1);
+            result =
+                    result.minusDays(1);
 
             if (result.getDayOfWeek().getValue() < 6) {
                 remaining--;
@@ -122,15 +132,23 @@ public class TaskReminderScheduler {
         return result;
     }
 
-        private void notifyAssignees(Task task, String reminderType) {
+    private void notifyAssignees(Task task, String reminderType) {
 
         List<TaskAssignment> assignments =
-                taskAssignmentRepository.findByTask_TaskId(task.getTaskId());
+                taskAssignmentRepository.findByTask_TaskId(
+                        task.getTaskId()
+                );
 
         for (TaskAssignment assignment : assignments) {
 
+            notificationService.sendTaskDueReminderEmail(
+                    assignment.getAssignedTo(),
+                    task,
+                    reminderType
+            );
+
             System.out.println(
-                    "Reminder would be sent: "
+                    "Reminder email sent: "
                             + reminderType
                             + " | Task: "
                             + task.getTitle()
