@@ -16,12 +16,10 @@ public class NotificationService {
     }
 
     public void sendTaskAssignedEmail(Employee employee, Task task) {
-
         SimpleMailMessage message =
                 new SimpleMailMessage();
 
         message.setTo(employee.getEmail());
-
         message.setSubject(
                 "New Task Assigned: " + task.getTitle()
         );
@@ -55,6 +53,10 @@ public class NotificationService {
                 )
         );
 
-        mailSender.send(message);
+        try{
+                mailSender.send(message);
+        } catch (Exception e) {
+                System.out.println("Failed to send email to " + employee.getEmail() + ": " + e.getMessage());
+        }
     }
 }

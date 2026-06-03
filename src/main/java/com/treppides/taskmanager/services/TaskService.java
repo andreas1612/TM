@@ -14,6 +14,7 @@ import com.treppides.taskmanager.repositories.TaskCommentRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
 import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -28,18 +29,21 @@ public class TaskService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
+    private final NotificationService notificationService;
 
     public TaskService(TaskRepository taskRepository,
-                       EmployeeRepository employeeRepository,
-                       TaskAssignmentRepository taskAssignmentRepository,
-                       TaskHistoryRepository taskHistoryRepository,
-                       TaskCommentRepository taskCommentRepository) {
-        this.taskRepository = taskRepository;
-        this.employeeRepository = employeeRepository;
-        this.taskAssignmentRepository = taskAssignmentRepository;
-        this.taskHistoryRepository = taskHistoryRepository;
-        this.taskCommentRepository = taskCommentRepository;
-    }
+                   EmployeeRepository employeeRepository,
+                   TaskAssignmentRepository taskAssignmentRepository,
+                   TaskHistoryRepository taskHistoryRepository,
+                   TaskCommentRepository taskCommentRepository,
+                   NotificationService notificationService) {
+    this.taskRepository = taskRepository;
+    this.employeeRepository = employeeRepository;
+    this.taskAssignmentRepository = taskAssignmentRepository;
+    this.taskHistoryRepository = taskHistoryRepository;
+    this.taskCommentRepository = taskCommentRepository;
+    this.notificationService = notificationService;
+}
 
     public List<Task> getTeamTasks(String email) {
         return taskRepository.findTasksForTeam(email);
@@ -84,6 +88,7 @@ public class TaskService {
                 assignment.setAssignedTo(employee);
 
                 taskAssignmentRepository.save(assignment);
+                notificationService.sendTaskAssignedEmail(employee, savedTask);
             }
         }
 
@@ -255,6 +260,7 @@ public class TaskService {
             assignment.setAssignedTo(employee);
 
             taskAssignmentRepository.save(assignment);
+            notificationService.sendTaskAssignedEmail(employee, task);
         }
     }
 
