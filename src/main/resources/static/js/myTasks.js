@@ -23,7 +23,9 @@ function renderMyTasks(tasks) {
     if (!tasks || tasks.length === 0) {
         table.innerHTML = `
             <tr>
-                <td colspan="5" class="muted">No tasks assigned to you.</td>
+                <td colspan="6" class="muted">
+                    No tasks assigned to you.
+                </td>
             </tr>
         `;
         return;
@@ -37,14 +39,28 @@ function renderMyTasks(tasks) {
                 <strong>${task.title}</strong>
                 <p class="muted">${task.description || "No description"}</p>
             </td>
-            <td><span class="badge ${getStatusClass(task.status)}">${formatStatus(task.status)}</span></td>
+            <td>
+                <span class="badge ${getStatusClass(task.status)}">
+                    ${formatStatus(task.status)}
+                </span>
+            </td>
             <td>${task.priority || "-"}</td>
             <td>${task.dueDate || "No due date"}</td>
+             <td>
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    onclick="openTask(${task.taskId})">
+                    Edit
+                </button>
+            </td>
             <td>
                 <select class="status-select" data-task-id="${task.taskId}">
                     <option value="TO_DO" ${task.status === "TO_DO" ? "selected" : ""}>To Do</option>
                     <option value="IN_PROGRESS" ${task.status === "IN_PROGRESS" ? "selected" : ""}>In Progress</option>
+                    <option value="ON_HOLD" ${task.status === "ON_HOLD" ? "selected" : ""}>On Hold</option>
                     <option value="COMPLETED" ${task.status === "COMPLETED" ? "selected" : ""}>Completed</option>
+                    <option value="CANCELLED" ${task.status === "CANCELLED" ? "selected" : ""}>Cancelled</option>
                 </select>
             </td>
         `;
@@ -63,6 +79,11 @@ function renderMyTasks(tasks) {
     });
 }
 
+function openTask(taskId) {
+    window.location.href =
+        `/task-details.html?id=${taskId}`;
+}
+
 function formatStatus(status) {
     if (status === "TO_DO") return "To Do";
     if (status === "IN_PROGRESS") return "In Progress";
@@ -76,7 +97,7 @@ function getStatusClass(status) {
     if (status === "TO_DO") return "todo";
     if (status === "IN_PROGRESS") return "progress";
     if (status === "ON_HOLD") return "hold";
-    if (status === "COMPLETED") return "Completed";
+    if (status === "COMPLETED") return "done";
     if (status === "CANCELLED") return "cancelled";
     return "";
 }
