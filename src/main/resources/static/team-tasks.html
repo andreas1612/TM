@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Team Tasks</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+   <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">TM</div>
+            <div>
+                <h2>Task Manager</h2>
+                <p>Internal Tools</p>
+            </div>
+        </div>
+
+        <nav class="side-nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/my-tasks.html">My Tasks</a>
+            <a class="active" href="/team-tasks.html">Team Tasks</a>
+            <a href="/create-task.html">Create Task</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Direct Reports</p>
+                <h1>Team Tasks</h1>
+                <p id="userName" class="muted">Loading...</p>
+            </div>
+
+            <div class="header-actions">
+                <button id="themeToggle" class="secondary-button"></button>
+            </div>
+        </header>
+
+        <section class="panel">
+
+            <div class="panel-header">
+                <div>
+                    <h2>Team Task List</h2>
+                    <p>Tasks assigned to employees under you</p>
+                </div>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Assigned To</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                    </tr>
+                </thead>
+
+                <tbody id="teamTasksTable"></tbody>
+            </table>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/teamTasks.js"></script>
+
+</body>
+</html>
