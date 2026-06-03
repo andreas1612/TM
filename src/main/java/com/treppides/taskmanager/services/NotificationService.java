@@ -21,7 +21,7 @@ public class NotificationService {
 
         message.setTo(employee.getEmail());
         message.setSubject(
-                "New Task Assigned: " + task.getTitle()
+                "Task Manager - New Task Assigned: " + task.getTitle()
         );
 
         message.setText(
@@ -29,7 +29,7 @@ public class NotificationService {
                 Hello %s,
 
                 You have been assigned a new task.
-
+                
                 Title:
                 %s
 
@@ -53,10 +53,14 @@ public class NotificationService {
                 )
         );
 
-        try{
+        System.out.println("Trying to send notification to: " + employee.getEmail());
+        try {
+                message.setFrom("notifications@treppides.com");
                 mailSender.send(message);
+                System.out.println("Notification email sent to: " + employee.getEmail());
         } catch (Exception e) {
-                System.out.println("Failed to send email to " + employee.getEmail() + ": " + e.getMessage());
+                System.out.println("Notification email failed for: " + employee.getEmail());
+                e.printStackTrace();
         }
     }
 }
