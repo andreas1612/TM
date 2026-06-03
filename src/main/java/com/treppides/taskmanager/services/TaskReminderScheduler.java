@@ -15,7 +15,7 @@ public class TaskReminderScheduler {
 
     private final TaskRepository taskRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;  
-      
+
     public TaskReminderScheduler(TaskRepository taskRepository, TaskAssignmentRepository taskassignmentRepositroy) {
         this.taskRepository = taskRepository;
         this.taskAssignmentRepository = taskassignmentRepositroy;
@@ -24,8 +24,40 @@ public class TaskReminderScheduler {
 
     @Scheduled(cron = "0 0 8 * * *") 
     public void checkUpComingDueTasks() {
-       List<Task> tasks = taskRepository.findByDueDateIsNotNullAndStatusNotIn(List.of("COMPLETED", "CANCELLED"));
-        LocalDate today = LocalDate.now();
+
+        System.out.println("Scheduler running...");
+
+        List<Task> tasks =
+                taskRepository.findByDueDateIsNotNullAndStatusNotIn(
+                        List.of("COMPLETED", "CANCELLED")
+                );
+
+        LocalDate today =
+                LocalDate.now();
+
+        for (Task task : tasks) {
+
+            System.out.println(
+                    "Checking task: "
+                            + task.getTitle()
+                            + " | Due: "
+                            + task.getDueDate()
+                            + " | Priority: "
+                            + task.getPriority()
+            );
+
+            String reminderType =
+                    getReminderType(task, today);
+
+            System.out.println(
+                    "Reminder type: "
+                            + reminderType
+            );
+
+            if (reminderType != null) {
+                notifyAssignees(task, reminderType);
+            }
+        }
     }
 
         private String getReminderType(Task task, LocalDate today) {
