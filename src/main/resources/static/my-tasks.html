@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Tasks</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">TM</div>
+            <div>
+                <h2>Task Manager</h2>
+                <p>Internal Tools</p>
+            </div>
+        </div>
+
+        <nav class="side-nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a class="active" href="/my-tasks.html">My Tasks</a>
+            <a href="/team-tasks.html">Team Tasks</a>
+            <a href="/create-task.html">Create Task</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Assigned to me</p>
+                <h1>My Tasks</h1>
+                <p id="userName" class="muted">Loading user...</p>
+            </div>
+
+            <div class="header-actions">
+                <button id="themeToggle" class="secondary-button" type="button"></button>
+                <a href="/create-task.html" class="primary-button">+ New Task</a>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Task List</h2>
+                    <p>Tasks assigned to your account</p>
+                </div>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Due Date</th>
+                        <th>Details</th>
+                        <th>Update Status</th>
+                    </td>
+                    </tr>
+                </thead>
+                <tbody id="myTasksTable"></tbody>
+            </table>
+        </section>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/myTasks.js"></script>
+</body>
+</html>
