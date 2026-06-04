@@ -1,15 +1,18 @@
 package com.treppides.taskmanager.services;
 
+import com.treppides.taskmanager.dto.CreateChecklistItemRequest;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.UpdateTaskRequest;
 import com.treppides.taskmanager.entities.Employee;
 import com.treppides.taskmanager.entities.Task;
 import com.treppides.taskmanager.entities.TaskAssignment;
+import com.treppides.taskmanager.entities.TaskChecklistItem;
 import com.treppides.taskmanager.entities.TaskComment;
 import com.treppides.taskmanager.entities.TaskHistory;
 import com.treppides.taskmanager.repositories.EmployeeRepository;
 import com.treppides.taskmanager.repositories.TaskAssignmentRepository;
+import com.treppides.taskmanager.repositories.TaskChecklistItemRepository;
 import com.treppides.taskmanager.repositories.TaskCommentRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
@@ -30,19 +33,21 @@ public class TaskService {
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final NotificationService notificationService;
+    private final TaskChecklistItemRepository taskChecklistItemRepository;
 
     public TaskService(TaskRepository taskRepository,
                    EmployeeRepository employeeRepository,
                    TaskAssignmentRepository taskAssignmentRepository,
                    TaskHistoryRepository taskHistoryRepository,
                    TaskCommentRepository taskCommentRepository,
-                   NotificationService notificationService) {
+                   NotificationService notificationService, TaskChecklistItemRepository taskChecklistItemRepository) {
     this.taskRepository = taskRepository;
     this.employeeRepository = employeeRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
     this.taskHistoryRepository = taskHistoryRepository;
     this.taskCommentRepository = taskCommentRepository;
     this.notificationService = notificationService;
+    this.taskChecklistItemRepository = taskChecklistItemRepository;
 }
 
     public List<Task> getTeamTasks(String email) {
@@ -293,5 +298,49 @@ public class TaskService {
     public List<TaskHistory> getTaskHistory(Integer taskId) {
         return taskHistoryRepository
                 .findByTask_TaskIdOrderByChangedAtAsc(taskId);
+    }
+
+    public List<TaskChecklistItem> getChecklistItems(Integer taskId) {
+        return taskChecklistItemRepository
+                .findByTask_TaskIdOrderBySortOrderAscChecklistItemIdAsc(taskId);
+    }
+
+    @Transactional
+    public TaskChecklistItem addChecklistItem(Integer taskId, CreateChecklistItemRequest request) {
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        TaskChecklistItem item = new TaskChecklistItem();
+
+        item.setTask(task);
+        item.setItemText(request.getItemText());
+        item.setIsCompleted(false);
+
+        List<TaskChecklistItem> existingItems =
+                taskChecklistItemRepository
+                        .findByTask_TaskIdOrderBySortOrderAscChecklistItemIdAsc(taskId);
+
+        item.setSortOrder(existingItems.size() + 1);
+
+        return taskChecklistItemRepository.save(item);
+    }
+
+    @Transactional
+    public TaskChecklistItem toggleChecklistItem(Integer checklistItemId) {
+
+        TaskChecklistItem item =
+                taskChecklistItemRepository.findById(checklistItemId)
+                        .orElseThrow(() -> new RuntimeException("Checklist item not found"));
+
+        item.setIsCompleted(!item.getIsCompleted());
+
+        return taskChecklistItemRepository.save(item);
+    }
+
+    @Transactional
+    public void deleteChecklistItem(Integer checklistItemId) {
+
+        taskChecklistItemRepository.deleteById(checklistItemId);
     }
 }
