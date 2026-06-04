@@ -4,6 +4,8 @@ import com.treppides.taskmanager.dto.CreateChecklistItemRequest;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.UpdateTaskRequest;
+import com.treppides.taskmanager.dto.CreateTaskDependencyRequest;
+import com.treppides.taskmanager.entities.TaskDependency;
 import com.treppides.taskmanager.entities.Employee;
 import com.treppides.taskmanager.entities.Task;
 import com.treppides.taskmanager.entities.TaskAssignment;
@@ -16,6 +18,7 @@ import com.treppides.taskmanager.repositories.TaskChecklistItemRepository;
 import com.treppides.taskmanager.repositories.TaskCommentRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
+import com.treppides.taskmanager.repositories.TaskDependencyRepository;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +37,15 @@ public class TaskService {
     private final TaskCommentRepository taskCommentRepository;
     private final NotificationService notificationService;
     private final TaskChecklistItemRepository taskChecklistItemRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
 
     public TaskService(TaskRepository taskRepository,
                    EmployeeRepository employeeRepository,
                    TaskAssignmentRepository taskAssignmentRepository,
                    TaskHistoryRepository taskHistoryRepository,
                    TaskCommentRepository taskCommentRepository,
-                   NotificationService notificationService, TaskChecklistItemRepository taskChecklistItemRepository) {
+                   NotificationService notificationService, TaskChecklistItemRepository taskChecklistItemRepository,
+                 TaskDependencyRepository taskDependencyRepository) {
     this.taskRepository = taskRepository;
     this.employeeRepository = employeeRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
@@ -48,6 +53,7 @@ public class TaskService {
     this.taskCommentRepository = taskCommentRepository;
     this.notificationService = notificationService;
     this.taskChecklistItemRepository = taskChecklistItemRepository;
+    this.taskDependencyRepository = taskDependencyRepository;
 }
 
     public List<Task> getTeamTasks(String email) {
@@ -393,5 +399,47 @@ public class TaskService {
         );
 
         taskChecklistItemRepository.deleteById(checklistItemId);
+    }
+
+    public List<TaskDependency> getTaskDependencies(Integer taskId) {
+        return taskDependencyRepository.findByTask_TaskId(taskId);
+    }
+
+    @Transactional
+    public TaskDependency addTaskDependency(
+            Integer taskId,
+            CreateTaskDependencyRequest request
+    ) {
+        if (taskId.equals(request.getDependsOnTaskId())) {
+            throw new RuntimeException("Task cannot depend on itself");
+        }
+
+        boolean alreadyExists =
+                taskDependencyRepository
+                        .existsByTask_TaskIdAndDependsOnTask_TaskId(
+                                taskId,
+                                request.getDependsOnTaskId()
+                        );
+
+        if (alreadyExists) {
+            throw new RuntimeException("Dependency already exists");
+        }
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Task dependsOnTask = taskRepository.findById(request.getDependsOnTaskId())
+                .orElseThrow(() -> new RuntimeException("Dependency task not found"));
+
+        TaskDependency dependency = new TaskDependency();
+        dependency.setTask(task);
+        dependency.setDependsOnTask(dependsOnTask);
+
+        return taskDependencyRepository.save(dependency);
+    }
+
+    @Transactional
+    public void deleteTaskDependency(Integer dependencyId) {
+        taskDependencyRepository.deleteById(dependencyId);
     }
 }
