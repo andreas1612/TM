@@ -55,7 +55,7 @@ async function loadDashboard() {
             completed;
 
         document.getElementById("myStats").innerText =
-            `${todo} To Do • ${inProgress} In Progress • ${onHold} On Hold • ${completed} Completed • ${cancelled} Cancelled`;
+            `${todo} To Do • ${inProgress} In Progress • ${onHold} On Hold`;
 
         document.getElementById("todoBreakdown").innerText =
             todo;
