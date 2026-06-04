@@ -96,27 +96,36 @@ public class TaskController {
     public List<TaskHistory> getTaskHistory(@PathVariable Integer taskId) {
         return taskService.getTaskHistory(taskId);
     }
-    
+
     @GetMapping("/{taskId}/checklist")
-    public List<TaskChecklistItem> getChecklistItems(@PathVariable Integer taskId) {
+    public List<TaskChecklistItem> getChecklistItems(
+            @PathVariable Integer taskId
+    ) {
         return taskService.getChecklistItems(taskId);
     }
-
+    
     @PostMapping("/{taskId}/checklist")
     public TaskChecklistItem addChecklistItem(
             @PathVariable Integer taskId,
-            @RequestBody CreateChecklistItemRequest request
+            @RequestBody CreateChecklistItemRequest request,
+            @RequestParam String changedBy
     ) {
-        return taskService.addChecklistItem(taskId, request);
+        return taskService.addChecklistItem(taskId, request, changedBy);
     }
 
     @PutMapping("/checklist/{checklistItemId}/toggle")
-    public TaskChecklistItem toggleChecklistItem(@PathVariable Integer checklistItemId) {
-        return taskService.toggleChecklistItem(checklistItemId);
+    public TaskChecklistItem toggleChecklistItem(
+            @PathVariable Integer checklistItemId,
+            @RequestParam String changedBy
+    ) {
+        return taskService.toggleChecklistItem(checklistItemId, changedBy);
     }
 
     @DeleteMapping("/checklist/{checklistItemId}")
-    public void deleteChecklistItem(@PathVariable Integer checklistItemId) {
-        taskService.deleteChecklistItem(checklistItemId);
+    public void deleteChecklistItem(
+            @PathVariable Integer checklistItemId,
+            @RequestParam String changedBy
+    ) {
+        taskService.deleteChecklistItem(checklistItemId, changedBy);
     }
 }
