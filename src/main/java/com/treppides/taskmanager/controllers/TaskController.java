@@ -6,6 +6,8 @@ import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.UpdateStatusRequest;
 import com.treppides.taskmanager.dto.UpdateTaskRequest;
 import com.treppides.taskmanager.dto.CreateChecklistItemRequest;
+import com.treppides.taskmanager.dto.CreateTaskDependencyRequest;
+import com.treppides.taskmanager.entities.TaskDependency;
 import com.treppides.taskmanager.entities.TaskChecklistItem;
 import com.treppides.taskmanager.entities.Task;
 import com.treppides.taskmanager.entities.TaskComment;
@@ -103,7 +105,7 @@ public class TaskController {
     ) {
         return taskService.getChecklistItems(taskId);
     }
-    
+
     @PostMapping("/{taskId}/checklist")
     public TaskChecklistItem addChecklistItem(
             @PathVariable Integer taskId,
@@ -127,5 +129,18 @@ public class TaskController {
             @RequestParam String changedBy
     ) {
         taskService.deleteChecklistItem(checklistItemId, changedBy);
+    }
+
+    @PostMapping("/{taskId}/dependencies")
+    public TaskDependency addTaskDependency(
+            @PathVariable Integer taskId,
+            @RequestBody CreateTaskDependencyRequest request
+    ) {
+        return taskService.addTaskDependency(taskId, request);
+    }
+
+    @DeleteMapping("/dependencies/{dependencyId}")
+    public void deleteTaskDependency(@PathVariable Integer dependencyId) {
+        taskService.deleteTaskDependency(dependencyId);
     }
 }
