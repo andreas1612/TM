@@ -422,6 +422,20 @@ select {
   gap: 12px;
 }
 
+.inline-form input,
+.comment-form textarea {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px;
+}
+
+.inline-form input::placeholder,
+.comment-form textarea::placeholder {
+  color: var(--muted);
+}
+
 /* ---------- Feedback ---------- */
 
 .error,
@@ -686,4 +700,129 @@ html[data-theme="dark"] .badge.done {
 .btn-secondary:hover {
     border-color: var(--accent-color);
     color: var(--accent-color);
+}
+
+/* details page */
+
+.details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.details-left,
+.details-right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.details-right .panel {
+    max-height: none;
+}
+
+/* checklist */
+
+.checklist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checklist-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+.checklist-item label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.checklist-item input[type="checkbox"] {
+    width: auto;
+}
+
+.checklist-item.completed span {
+    text-decoration: line-through;
+    opacity: 0.65;
+}
+
+.inline-form {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.inline-form input {
+    flex: 1;
+}
+
+.icon-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--muted);
+}
+
+.icon-button:hover {
+    color: #dc2626;
+}
+
+/*comments */
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.comment-item {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.comment-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* history */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-item {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+@media (max-width: 1100px) {
+
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
 }

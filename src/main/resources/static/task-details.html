@@ -50,117 +50,152 @@
 
         <div class="details-grid">
 
-            <!-- LEFT -->
-            <section class="panel">
+            <div class="details-left">
 
-                <div class="panel-header">
-                    <div>
-                        <h2>Edit Task</h2>
-                        <p>Update task information</p>
+                <section class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h2>Edit Task</h2>
+                            <p>Update task information</p>
+                        </div>
                     </div>
-                </div>
 
-                <form id="taskForm" class="form">
+                    <form id="taskForm" class="form">
 
-                    <label for="title">Title</label>
-                    <input id="title" type="text">
+                        <label for="title">Title</label>
+                        <input id="title" type="text">
 
-                    <label for="description">Description</label>
-                    <textarea id="description"></textarea>
+                        <label for="description">Description</label>
+                        <textarea id="description"></textarea>
 
-                    <div class="form-group">
-                        <label>Assigned To</label>
+                        <div class="form-group">
+                            <label>Assigned To</label>
 
-                        <div id="selectedEmployees"
-                            class="selected-employees">
+                            <div id="selectedEmployees"
+                                class="selected-employees">
+                            </div>
+
+                            <select id="employeeDropdown">
+                                <option value="">
+                                    Add employee...
+                                </option>
+                            </select>
                         </div>
 
-                        <select id="employeeDropdown">
-                            <option value="">
-                                Add employee...
-                            </option>
+                        <label for="client">Client</label>
+                        <input type="text" id="client">
+
+                        <label for="status">Status</label>
+                        <select id="status">
+                            <option value="TO_DO">To Do</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="ON_HOLD">On Hold</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
                         </select>
+
+                        <label for="priority">Priority</label>
+                        <select id="priority">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH">High</option>
+                        </select>
+
+                        <label for="dueDate">Due Date</label>
+                        <input id="dueDate" type="date">
+
+                        <div class="form-actions">
+                            <button type="submit"
+                                    class="primary-button">
+                                Save Changes
+                            </button>
+                        </div>
+
+                        <div id="saveMessage"></div>
+
+                    </form>
+
+                </section>
+
+                
+            </div>
+
+            <div class="details-right">
+                <section class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h2>Checklist</h2>
+                            <p>Break the task into smaller items</p>
+                        </div>
                     </div>
-                    <label for="client">Client</label>
-                    <input type="text"
-                        id="client">
-  
-                    <label for="status">Status</label>
-                    <select id="status">
-                        <option value="TO_DO">To Do</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="ON_HOLD">On Hold</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="CANCELLED">Cancelled</option>
-                    </select>
 
-                    <label for="priority">Priority</label>
-                    <select id="priority">
-                        <option value="LOW">Low</option>
-                        <option value="MEDIUM">Medium</option>
-                        <option value="HIGH">High</option>
-                    </select>
+                    <div id="checklistItems"
+                        class="checklist-list">
+                    </div>
 
-                    <label for="dueDate">Due Date</label>
-                    <input id="dueDate" type="date">
+                    <form id="checklistForm"
+                        class="inline-form">
 
-                    <div class="form-actions">
+                        <input id="checklistText"
+                            type="text"
+                            placeholder="Add checklist item">
+
                         <button type="submit"
                                 class="primary-button">
-                            Save Changes
+                            Add
                         </button>
+
+                    </form>
+
+                </section>
+
+                
+                <section class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h2>Comments</h2>
+                            <p>Task discussion</p>
+                        </div>
                     </div>
 
-                    <div id="saveMessage"></div>
-
-                </form>
-
-            </section>
-
-            <!-- RIGHT -->
-            <section class="panel">
-
-                <div class="panel-header">
-                    <div>
-                        <h2>Comments</h2>
-                        <p>Task discussion</p>
+                    <div id="commentsList"
+                        class="comments-list">
                     </div>
-                </div>
 
-                <div id="commentsList"
-                     class="comments-list">
-                </div>
+                    <form id="commentForm"
+                        class="comment-form">
 
-                <form id="commentForm"
-                      class="comment-form">
+                        <textarea id="commentText"
+                                placeholder="Add comment..."></textarea>
 
-                    <textarea id="commentText"
-                              placeholder="Add comment...">
-                    </textarea>
+                        <button type="submit"
+                                class="primary-button">
+                            Add Comment
+                        </button>
 
-                    <button type="submit"
-                            class="primary-button">
-                        Add Comment
-                    </button>
+                    </form>
 
-                </form>
+                </section>
 
-            </section>
+                <section class="panel history-panel">
 
-            <div class="panel history-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>History</h2>
+                            <p>Task activity log</p>
+                        </div>
+                    </div>
 
-    <div class="panel-header">
-            <div>
-                <h2>History</h2>
-                <p>Task activity log</p>
+                    <div id="historyList"
+                        class="history-list">
+                    </div>
+
+                </section>
+
             </div>
-        </div>
-
-        <div id="historyList"
-            class="history-list">
-        </div>
-
-    </div>
 
         </div>
 

@@ -84,3 +84,28 @@ async function getDirectReports(email) {
         `/api/employees/direct-reports/${encodeURIComponent(email)}`
     );
 }
+
+async function getChecklistItems(taskId) {
+    return apiRequest(`/api/tasks/${taskId}/checklist`);
+}
+
+async function addChecklistItem(taskId, itemText) {
+    return apiRequest(`/api/tasks/${taskId}/checklist`, {
+        method: "POST",
+        body: JSON.stringify({
+            itemText
+        })
+    });
+}
+
+async function toggleChecklistItem(checklistItemId) {
+    return apiRequest(`/api/tasks/checklist/${checklistItemId}/toggle`, {
+        method: "PUT"
+    });
+}
+
+async function deleteChecklistItem(checklistItemId) {
+    return apiRequest(`/api/tasks/checklist/${checklistItemId}`, {
+        method: "DELETE"
+    });
+}

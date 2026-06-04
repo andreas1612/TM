@@ -21,6 +21,7 @@ async function initTaskDetailsPage() {
 
         await loadAvailableEmployees();
         await loadTask();
+        await loadChecklist();
         await loadComments();
         await loadHistory();
 
@@ -31,7 +32,11 @@ async function initTaskDetailsPage() {
         document
             .getElementById("taskForm")
             .addEventListener("submit", handleSaveTask);
-
+        
+        document
+            .getElementById("checklistForm")
+            .addEventListener("submit", handleAddChecklistItem);
+                
         document
             .getElementById("commentForm")
             .addEventListener("submit", handleAddComment);
@@ -340,4 +345,70 @@ function formatDateTime(value) {
     }
 
     return date.toLocaleString();
+}
+
+async function loadChecklist() {
+    const items = await getChecklistItems(taskId);
+    renderChecklist(items);
+}
+
+function renderChecklist(items) {
+    const container = document.getElementById("checklistItems");
+    container.innerHTML = "";
+
+    if (!items || items.length === 0) {
+        container.innerHTML = "<p class='muted'>No checklist items yet.</p>";
+        return;
+    }
+
+    items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = item.isCompleted
+            ? "checklist-item completed"
+            : "checklist-item";
+
+        row.innerHTML = `
+            <label>
+                <input type="checkbox"
+                       ${item.isCompleted ? "checked" : ""}
+                       onchange="handleToggleChecklistItem(${item.checklistItemId})">
+
+                <span>${item.itemText}</span>
+            </label>
+
+            <button type="button"
+                    class="icon-button"
+                    onclick="handleDeleteChecklistItem(${item.checklistItemId})">
+                ×
+            </button>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+async function handleAddChecklistItem(event) {
+    event.preventDefault();
+
+    const input = document.getElementById("checklistText");
+    const text = input.value.trim();
+
+    if (!text) {
+        return;
+    }
+
+    await addChecklistItem(taskId, text);
+
+    input.value = "";
+    await loadChecklist();
+}
+
+async function handleToggleChecklistItem(checklistItemId) {
+    await toggleChecklistItem(checklistItemId);
+    await loadChecklist();
+}
+
+async function handleDeleteChecklistItem(checklistItemId) {
+    await deleteChecklistItem(checklistItemId);
+    await loadChecklist();
 }
