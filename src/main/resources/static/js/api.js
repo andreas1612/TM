@@ -89,23 +89,32 @@ async function getChecklistItems(taskId) {
     return apiRequest(`/api/tasks/${taskId}/checklist`);
 }
 
-async function addChecklistItem(taskId, itemText) {
-    return apiRequest(`/api/tasks/${taskId}/checklist`, {
-        method: "POST",
-        body: JSON.stringify({
-            itemText
-        })
-    });
+async function addChecklistItem(taskId, itemText, changedBy) {
+    return apiRequest(
+        `/api/tasks/${taskId}/checklist?changedBy=${encodeURIComponent(changedBy)}`,
+        {
+            method: "POST",
+            body: JSON.stringify({
+                itemText
+            })
+        }
+    );
 }
 
-async function toggleChecklistItem(checklistItemId) {
-    return apiRequest(`/api/tasks/checklist/${checklistItemId}/toggle`, {
-        method: "PUT"
-    });
+async function toggleChecklistItem(checklistItemId, changedBy) {
+    return apiRequest(
+        `/api/tasks/checklist/${checklistItemId}/toggle?changedBy=${encodeURIComponent(changedBy)}`,
+        {
+            method: "PUT"
+        }
+    );
 }
 
-async function deleteChecklistItem(checklistItemId) {
-    return apiRequest(`/api/tasks/checklist/${checklistItemId}`, {
-        method: "DELETE"
-    });
+async function deleteChecklistItem(checklistItemId, changedBy) {
+    return apiRequest(
+        `/api/tasks/checklist/${checklistItemId}?changedBy=${encodeURIComponent(changedBy)}`,
+        {
+            method: "DELETE"
+        }
+    );
 }

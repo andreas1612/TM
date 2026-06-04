@@ -305,11 +305,17 @@ public class TaskService {
                 .findByTask_TaskIdOrderBySortOrderAscChecklistItemIdAsc(taskId);
     }
 
-    @Transactional
-    public TaskChecklistItem addChecklistItem(Integer taskId, CreateChecklistItemRequest request) {
-
+   @Transactional
+    public TaskChecklistItem addChecklistItem(
+            Integer taskId,
+            CreateChecklistItemRequest request,
+            String changedByEmail
+    ) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
 
         TaskChecklistItem item = new TaskChecklistItem();
 
@@ -323,23 +329,68 @@ public class TaskService {
 
         item.setSortOrder(existingItems.size() + 1);
 
-        return taskChecklistItemRepository.save(item);
+        TaskChecklistItem savedItem =
+                taskChecklistItemRepository.save(item);
+
+        addHistory(
+                task,
+                changedBy,
+                "Checklist",
+                "Created",
+                savedItem.getItemText()
+        );
+
+        return savedItem;
     }
 
     @Transactional
-    public TaskChecklistItem toggleChecklistItem(Integer checklistItemId) {
-
+    public TaskChecklistItem toggleChecklistItem(
+            Integer checklistItemId,
+            String changedByEmail
+    ) {
         TaskChecklistItem item =
                 taskChecklistItemRepository.findById(checklistItemId)
                         .orElseThrow(() -> new RuntimeException("Checklist item not found"));
 
-        item.setIsCompleted(!item.getIsCompleted());
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+        Boolean oldValue = item.getIsCompleted();
+        Boolean newValue = !oldValue;
+
+        item.setIsCompleted(newValue);
+
+        addHistory(
+                item.getTask(),
+                changedBy,
+                "Checklist",
+                oldValue ? "Completed" : "Open",
+                newValue
+                        ? "Completed: " + item.getItemText()
+                        : "Open: " + item.getItemText()
+        );
 
         return taskChecklistItemRepository.save(item);
     }
 
     @Transactional
-    public void deleteChecklistItem(Integer checklistItemId) {
+    public void deleteChecklistItem(
+            Integer checklistItemId,
+            String changedByEmail
+    ) {
+        TaskChecklistItem item =
+                taskChecklistItemRepository.findById(checklistItemId)
+                        .orElseThrow(() -> new RuntimeException("Checklist item not found"));
+
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        addHistory(
+                item.getTask(),
+                changedBy,
+                "Checklist",
+                "Deleted",
+                item.getItemText()
+        );
 
         taskChecklistItemRepository.deleteById(checklistItemId);
     }

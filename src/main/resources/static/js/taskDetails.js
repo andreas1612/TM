@@ -397,18 +397,17 @@ async function handleAddChecklistItem(event) {
         return;
     }
 
-    await addChecklistItem(taskId, text);
+    await addChecklistItem(taskId, text, currentUser.email);
 
     input.value = "";
     await loadChecklist();
 }
 
 async function handleToggleChecklistItem(checklistItemId) {
-    await toggleChecklistItem(checklistItemId);
-    await loadChecklist();
+    await toggleChecklistItem(checklistItemId, currentUser.email);    await loadChecklist();
 }
 
 async function handleDeleteChecklistItem(checklistItemId) {
-    await deleteChecklistItem(checklistItemId);
+    await deleteChecklistItem(checklistItemId, currentUser.email);
     await loadChecklist();
 }
