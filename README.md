@@ -120,5 +120,6 @@ On the server the real file lives at `~/taskmanager/src/main/resources/applicati
 
 ### Production
 
-Deployed on `192.168.0.221` via nginx at `https://hub.treppides.com/projects`.
-See `DEPLOY_CHECKLIST.md` for full deployment steps.
+Deployed on `192.168.0.221` at `https://tasks.treppides.com` (pending IT DNS).
+Task Manager is an independent component — it is accessed from the hub's Projects tab
+but runs entirely on its own domain. The hub never depends on TM's internals.
