@@ -139,13 +139,11 @@
 </div>
 
 <script>
-    // If login was triggered by the hub, bounce back there.
-    // returnTo is stored in a cookie (set by hub's auth.js) so it survives
-    // the OAuth2 redirect chain without needing a visible login page.
-    const _match = document.cookie.match(/(?:^|;\s*)tm_return_to=([^;]+)/);
-    if (_match) {
-        document.cookie = "tm_return_to=;path=/;max-age=0;SameSite=Lax";
-        window.location.replace(decodeURIComponent(_match[1]));
+    // If login was triggered by the hub (or another page), bounce back there.
+    const _returnTo = sessionStorage.getItem("tm_login_return_to");
+    if (_returnTo) {
+        sessionStorage.removeItem("tm_login_return_to");
+        window.location.replace(_returnTo);
     }
 </script>
 <script src="/js/api.js"></script>
