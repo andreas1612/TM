@@ -544,6 +544,7 @@ html[data-theme="dark"] .main-content {
 
 .panel,
 .stat-card {
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Details</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -42,7 +43,8 @@
             <div class="header-actions">
                 <button id="themeToggle"
                         class="secondary-button"
-                        type="button">
+                        type="button"
+                        aria-label="Toggle color theme">
                 </button>
             </div>
 
@@ -70,13 +72,13 @@
                         <textarea id="description"></textarea>
 
                         <div class="form-group">
-                            <label>Assigned To</label>
+                            <label for="employeeDropdown">Assigned To</label>
 
                             <div id="selectedEmployees"
                                 class="selected-employees">
                             </div>
 
-                            <select id="employeeDropdown">
+                            <select id="employeeDropdown" aria-label="Add assigned employee">
                                 <option value="">
                                     Add employee...
                                 </option>
@@ -140,6 +142,7 @@
 
                         <input id="checklistText"
                             type="text"
+                            aria-label="Checklist item"
                             placeholder="Add checklist item">
 
                         <button type="submit"
@@ -167,7 +170,7 @@
                     <form id="dependencyForm"
                         class="inline-form">
 
-                        <select id="dependencyDropdown">
+                        <select id="dependencyDropdown" aria-label="Add dependency task">
                             <option value="">
                                 Add dependency...
                             </option>
@@ -202,6 +205,7 @@
                         class="comment-form">
 
                         <textarea id="commentText"
+                                aria-label="Comment text"
                                 placeholder="Add comment..."></textarea>
 
                         <button type="submit"

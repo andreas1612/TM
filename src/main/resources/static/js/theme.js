@@ -5,6 +5,14 @@ function applyTheme(theme) {
   const button = document.getElementById("themeToggle");
   if (button) {
     button.innerText = theme === "dark" ? "Light Mode" : "Dark Mode";
+    button.setAttribute(
+      "aria-label",
+      theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+    );
+    button.setAttribute(
+      "title",
+      theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+    );
   }
 }
 

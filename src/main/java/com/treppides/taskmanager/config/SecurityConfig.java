@@ -18,6 +18,9 @@ public class SecurityConfig {
                 .requestMatchers("/", "/error", "/css/**", "/js/**", "/favicon.ico").permitAll()
                 .anyRequest().authenticated()
             )
+            .headers(headers -> headers
+                .xssProtection(xss -> xss.disable())
+            )
             .oauth2Login();
 
         return http.build();

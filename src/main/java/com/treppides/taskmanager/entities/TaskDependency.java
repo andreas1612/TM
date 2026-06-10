@@ -25,7 +25,7 @@ public class TaskDependency {
     private LocalDateTime createdAt;
 
     @Column(name = "DependencyType", nullable = false, length = 50)
-    private String dependencyType = "BLOCKING";
+    private String dependencyType = "BLOCKED_BY";
 
     @PrePersist
     public void onCreate() {

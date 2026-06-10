@@ -8,11 +8,11 @@ async function apiRequest(url, options = {}) {
     ...options
   });
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
   const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
 
   if (!text) {
     return null;
@@ -131,7 +131,7 @@ async function getDependencyCandidates(taskId) {
     return apiRequest(`/api/tasks/${taskId}/dependency-candidates`);
 }
 
-async function addTaskDependency(taskId, dependsOnTaskId, dependencyType = "BLOCKING") {
+async function addTaskDependency(taskId, dependsOnTaskId, dependencyType = "BLOCKED_BY") {
     return apiRequest(`/api/tasks/${taskId}/dependencies`, {
         method: "POST",
         body: JSON.stringify({
