@@ -14,7 +14,8 @@ public class AuthController {
     public Map<String, Object> me(@AuthenticationPrincipal OidcUser user) {
         return Map.of(
                 "email", user.getEmail(),
-                "name", user.getFullName()
+                "name", user.getFullName(),
+                "preferredUsername", user.getPreferredUsername()
         );
     }
 }
