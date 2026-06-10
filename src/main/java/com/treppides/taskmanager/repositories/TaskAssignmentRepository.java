@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, Integer> {
     List<TaskAssignment> findByAssignedTo_Email(String email);
+    List<TaskAssignment> findByAssignedTo_EmailIn(List<String> emails);
     List<TaskAssignment> findByTask_TaskId(Integer taskId);
     void deleteByTask_TaskId(Integer taskId);
 }

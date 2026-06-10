@@ -6,6 +6,7 @@ import com.treppides.taskmanager.repositories.EmployeeRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class EmployeeService {
@@ -17,8 +18,15 @@ public class EmployeeService {
     }
 
     public List<EmployeeOptionResponse> getDirectReports(String supervisorEmail) {
-        List<Employee> employees =
-                employeeRepository.findBySupervisorIdAndIsActiveTrue(supervisorEmail);
+        Employee supervisor = employeeRepository.findById(supervisorEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found: " + supervisorEmail));
+
+        List<Employee> employees = supervisor.getTeamId() == null
+                ? employeeRepository.findBySupervisorIdAndIsActiveTrue(supervisorEmail)
+                : employeeRepository.findByTeamIdAndIsActiveTrue(supervisor.getTeamId())
+                        .stream()
+                        .filter(employee -> !Objects.equals(employee.getEmail(), supervisorEmail))
+                        .toList();
 
         return employees.stream()
                 .map(EmployeeOptionResponse::new)

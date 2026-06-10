@@ -28,6 +28,9 @@ public class Employee {
     @Column(name = "SUPERVISORID")
     private String supervisorId;
 
+    @Column(name = "TEAMID")
+    private Integer teamId;
+
     // getters and setters ...
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
@@ -49,5 +52,8 @@ public class Employee {
 
     public String getSupervisor() { return supervisorId; }
     public void setSupervisor(String supervisorId) { this.supervisorId = supervisorId; }
+
+    public Integer getTeamId() { return teamId; }
+    public void setTeamId(Integer teamId) { this.teamId = teamId; }
     
 }

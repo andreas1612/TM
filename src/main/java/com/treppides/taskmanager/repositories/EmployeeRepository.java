@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface EmployeeRepository extends JpaRepository<Employee, String> {
     List<Employee> findBySupervisorIdAndIsActiveTrue(String supervisorId);
+    List<Employee> findByTeamIdAndIsActiveTrue(Integer teamId);
+    List<Employee> findByDepartmentIdAndTeamIdIsNullAndIsActiveTrue(Integer departmentId);
 }

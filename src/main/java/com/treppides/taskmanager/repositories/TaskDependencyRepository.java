@@ -9,5 +9,9 @@ public interface TaskDependencyRepository extends JpaRepository<TaskDependency, 
 
     List<TaskDependency> findByTask_TaskId(Integer taskId);
 
-    boolean existsByTask_TaskIdAndDependsOnTask_TaskId(Integer taskId, Integer dependsOnTaskId);
+    boolean existsByTask_TaskIdAndDependsOnTask_TaskIdAndDependencyType(
+            Integer taskId,
+            Integer dependsOnTaskId,
+            String dependencyType
+    );
 }
