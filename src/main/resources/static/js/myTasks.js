@@ -55,7 +55,9 @@ function renderMyTasks(tasks) {
                 </button>
             </td>
             <td>
-                <select class="status-select" data-task-id="${task.taskId}">
+                <select class="status-select"
+                        data-task-id="${task.taskId}"
+                        aria-label="Update status for ${task.title}">
                     <option value="TO_DO" ${task.status === "TO_DO" ? "selected" : ""}>To Do</option>
                     <option value="IN_PROGRESS" ${task.status === "IN_PROGRESS" ? "selected" : ""}>In Progress</option>
                     <option value="ON_HOLD" ${task.status === "ON_HOLD" ? "selected" : ""}>On Hold</option>

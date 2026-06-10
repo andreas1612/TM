@@ -102,6 +102,7 @@ function renderTaskGroups(groups) {
                         <button
                             type="button"
                             class="btn-secondary"
+                            aria-label="Edit ${task.title}"
                             onclick="openTask(${task.taskId})">
                             Edit
                         </button>

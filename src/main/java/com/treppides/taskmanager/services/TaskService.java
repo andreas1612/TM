@@ -608,7 +608,7 @@ public class TaskService {
                         .existsByTask_TaskIdAndDependsOnTask_TaskIdAndDependencyType(
                                 taskId,
                                 task.getTaskId(),
-                                "BLOCKING"
+                                "BLOCKED_BY"
                         ))
                 .filter(task -> !wouldCreateCycle(taskId, task.getTaskId()))
                 .map(task -> new TaskResponse(
@@ -651,6 +651,10 @@ public class TaskService {
         Task dependsOnTask = taskRepository.findById(request.getDependsOnTaskId())
                 .orElseThrow(() -> new RuntimeException("Dependency task not found"));
 
+        if (isInactiveStatus(dependsOnTask.getStatus())) {
+            throw new RuntimeException("Dependency task must be active");
+        }
+
         boolean sameTeamScope = taskRepository.findDependencyCandidatesForTask(taskId)
                 .stream()
                 .anyMatch(candidate -> Objects.equals(
@@ -672,10 +676,16 @@ public class TaskService {
 
     private String normalizeDependencyType(String dependencyType) {
         if (dependencyType == null || dependencyType.trim().isEmpty()) {
-            return "BLOCKING";
+            return "BLOCKED_BY";
         }
 
         return dependencyType.trim().toUpperCase();
+    }
+
+    private boolean isInactiveStatus(String status) {
+        return "COMPLETED".equals(status)
+                || "CANCELLED".equals(status)
+                || "DONE".equals(status);
     }
 
     private List<TaskDependencyResponse> getTaskDependencyResponses(

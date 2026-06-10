@@ -139,11 +139,14 @@ public class TaskController {
     }
 
     @PostMapping("/{taskId}/dependencies")
-    public TaskDependency addTaskDependency(
+    public TaskDependencyResponse addTaskDependency(
             @PathVariable Integer taskId,
             @RequestBody CreateTaskDependencyRequest request
     ) {
-        return taskService.addTaskDependency(taskId, request);
+        return new TaskDependencyResponse(
+                taskService.addTaskDependency(taskId, request),
+                List.of()
+        );
     }
 
     @GetMapping("/{taskId}/dependencies")

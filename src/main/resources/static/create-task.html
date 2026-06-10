@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Task</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -36,7 +37,7 @@
             </div>
 
             <div class="header-actions">
-                <button id="themeToggle" class="secondary-button" type="button"></button>
+                <button id="themeToggle" class="secondary-button" type="button" aria-label="Toggle color theme"></button>
             </div>
         </header>
 
@@ -57,13 +58,13 @@
                 <textarea id="description" placeholder="Enter task description"></textarea>
 
                 <div class="form-group">
-                    <label>Assign To</label>
+                    <label for="employeeDropdown">Assign To</label>
 
                     <div id="selectedEmployees"
                         class="selected-employees">
                     </div>
 
-                    <select id="employeeDropdown">
+                    <select id="employeeDropdown" aria-label="Add assigned employee">
                         <option value="">
                             Add employee...
                         </option>

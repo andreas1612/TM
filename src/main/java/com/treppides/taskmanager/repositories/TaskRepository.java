@@ -33,6 +33,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
             ON currentAssignment.AssignedTo = currentEmployee.EMAIL
         WHERE candidate.TaskId <> :taskId
           AND candidateEmployee.ISACTIVE = 1
+          AND candidate.Status NOT IN ('COMPLETED', 'CANCELLED', 'DONE')
           AND (
               (
                   currentEmployee.TEAMID IS NOT NULL
