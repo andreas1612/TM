@@ -8,9 +8,9 @@ async function loadTeamTasks() {
         document.getElementById("userName").innerText =
             user.name;
 
-        const tasks = await getTeamTasks(user.email);
+        const groups = await getTeamTaskGroups(user.email);
 
-        renderTasks(tasks);
+        renderTaskGroups(groups);
 
     } catch (error) {
 
@@ -21,59 +21,111 @@ async function loadTeamTasks() {
     }
 }
 
-function renderTasks(tasks) {
+function renderTaskGroups(groups) {
 
-    const table =
-        document.getElementById("teamTasksTable");
+    const container =
+        document.getElementById("teamTaskGroups");
 
-    table.innerHTML = "";
+    container.innerHTML = "";
 
-    if (!tasks || tasks.length === 0) {
+    if (!groups || groups.length === 0) {
 
-        table.innerHTML = `
-            <tr>
-                <td colspan="3" class="muted">
-                    No team tasks found.
-                </td>
-            </tr>
+        container.innerHTML = `
+            <p class="muted">No team tasks found.</p>
         `;
 
         return;
     }
 
-    tasks.forEach(task => {
+    groups.forEach(group => {
+        const groupSection = document.createElement("section");
 
-        const row = document.createElement("tr");
+        groupSection.className = "team-task-group";
 
-        row.innerHTML = `
-            <td>
-                <strong>${task.title}</strong>
-            </td>
-            <td>
-                ${task.assignedTo && task.assignedTo.length > 0
-                    ? task.assignedTo.join(", ")
-                    : "-"}
-            </td>
-            <td>
-                <span class="badge ${getStatusClass(task.status)}">
-                    ${formatStatus(task.status)}
+        groupSection.innerHTML = `
+            <div class="team-task-group-header">
+                <div>
+                    <h3>${group.groupName}</h3>
+                    <p>${formatGroupType(group.groupType)}</p>
+                </div>
+                <span class="badge">
+                    ${group.tasks ? group.tasks.length : 0} tasks
                 </span>
-            </td>
-            <td>
-                ${task.dueDate || "-"}
-            </td>
-            <td>
-                <button
-                    type="button"
-                    class="btn-secondary"
-                    onclick="openTask(${task.taskId})">
-                    Edit
-                </button>
-            </td>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Assigned To</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         `;
 
-        table.appendChild(row);
+        const tableBody = groupSection.querySelector("tbody");
+
+        if (!group.tasks || group.tasks.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="muted">
+                        No tasks found for this group.
+                    </td>
+                </tr>
+            `;
+        } else {
+            group.tasks.forEach(task => {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>
+                        <strong>${task.title}</strong>
+                    </td>
+                    <td>
+                        ${task.assignedTo && task.assignedTo.length > 0
+                            ? task.assignedTo.join(", ")
+                            : "-"}
+                    </td>
+                    <td>
+                        <span class="badge ${getStatusClass(task.status)}">
+                            ${formatStatus(task.status)}
+                        </span>
+                    </td>
+                    <td>
+                        ${task.dueDate || "-"}
+                    </td>
+                    <td>
+                        <button
+                            type="button"
+                            class="btn-secondary"
+                            onclick="openTask(${task.taskId})">
+                            Edit
+                        </button>
+                    </td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        container.appendChild(groupSection);
     });
+}
+
+function formatGroupType(groupType) {
+    if (groupType === "TEAM")
+        return "Same team";
+    if (groupType === "DEPARTMENT")
+        return "Department fallback";
+    if (groupType === "SUPERVISED_TEAM")
+        return "Direct reports from another team";
+    if (groupType === "SUPERVISED_DEPARTMENT")
+        return "Direct reports without a team";
+    return "Team tasks";
 }
 
 function formatStatus(status) {

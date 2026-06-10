@@ -661,6 +661,37 @@ html[data-theme="dark"] .badge.done {
 .task-list {
   margin-top: 14px;
 }
+
+.team-task-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.team-task-group {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.team-task-group-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.team-task-group-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.team-task-group-header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
 .selected-employees {
     display: flex;
     flex-wrap: wrap;
@@ -753,6 +784,41 @@ html[data-theme="dark"] .badge.done {
 .checklist-item.completed span {
     text-decoration: line-through;
     opacity: 0.65;
+}
+
+.dependencies-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dependency-node {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dependency-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+.dependency-card p {
+    margin: 5px 0 0;
+    color: var(--muted);
+}
+
+.dependency-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .inline-form {

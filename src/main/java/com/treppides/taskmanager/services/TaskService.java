@@ -3,6 +3,8 @@ package com.treppides.taskmanager.services;
 import com.treppides.taskmanager.dto.CreateChecklistItemRequest;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
+import com.treppides.taskmanager.dto.TaskDependencyResponse;
+import com.treppides.taskmanager.dto.TeamTaskGroupResponse;
 import com.treppides.taskmanager.dto.UpdateTaskRequest;
 import com.treppides.taskmanager.dto.CreateTaskDependencyRequest;
 import com.treppides.taskmanager.entities.TaskDependency;
@@ -13,6 +15,7 @@ import com.treppides.taskmanager.entities.TaskChecklistItem;
 import com.treppides.taskmanager.entities.TaskComment;
 import com.treppides.taskmanager.entities.TaskHistory;
 import com.treppides.taskmanager.repositories.EmployeeRepository;
+import com.treppides.taskmanager.repositories.DepartmentRepository;
 import com.treppides.taskmanager.repositories.TaskAssignmentRepository;
 import com.treppides.taskmanager.repositories.TaskChecklistItemRepository;
 import com.treppides.taskmanager.repositories.TaskCommentRepository;
@@ -24,14 +27,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class TaskService {
 
     private final TaskRepository taskRepository;
     private final EmployeeRepository employeeRepository;
+    private final DepartmentRepository departmentRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
@@ -41,6 +49,7 @@ public class TaskService {
 
     public TaskService(TaskRepository taskRepository,
                    EmployeeRepository employeeRepository,
+                   DepartmentRepository departmentRepository,
                    TaskAssignmentRepository taskAssignmentRepository,
                    TaskHistoryRepository taskHistoryRepository,
                    TaskCommentRepository taskCommentRepository,
@@ -48,6 +57,7 @@ public class TaskService {
                  TaskDependencyRepository taskDependencyRepository) {
     this.taskRepository = taskRepository;
     this.employeeRepository = employeeRepository;
+    this.departmentRepository = departmentRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
     this.taskHistoryRepository = taskHistoryRepository;
     this.taskCommentRepository = taskCommentRepository;
@@ -57,7 +67,187 @@ public class TaskService {
 }
 
     public List<Task> getTeamTasks(String email) {
-        return taskRepository.findTasksForTeam(email);
+        Map<Integer, Task> tasksById = new LinkedHashMap<>();
+
+        for (TeamTaskGroupResponse group : getTeamTaskGroups(email)) {
+            for (TaskResponse taskResponse : group.getTasks()) {
+                Task task = taskRepository.findById(taskResponse.getTaskId())
+                        .orElseThrow(() -> new RuntimeException("Task not found"));
+
+                tasksById.putIfAbsent(task.getTaskId(), task);
+            }
+        }
+
+        return new ArrayList<>(tasksById.values());
+    }
+
+    public List<TeamTaskGroupResponse> getTeamTaskGroups(String email) {
+        Employee currentEmployee = employeeRepository.findById(email)
+                .orElseThrow(() -> new RuntimeException("Employee not found: " + email));
+
+        Map<String, EmployeeGroup> groups = new LinkedHashMap<>();
+
+        addPrimaryGroup(groups, currentEmployee);
+        addSupervisedGroups(groups, currentEmployee);
+
+        return groups.values()
+                .stream()
+                .map(this::toTeamTaskGroupResponse)
+                .toList();
+    }
+
+    private void addPrimaryGroup(Map<String, EmployeeGroup> groups, Employee currentEmployee) {
+        if (currentEmployee.getTeamId() != null) {
+            addGroup(
+                    groups,
+                    "team-" + currentEmployee.getTeamId(),
+                    "Team " + currentEmployee.getTeamId(),
+                    "TEAM",
+                    currentEmployee.getTeamId(),
+                    null,
+                    employeeRepository.findByTeamIdAndIsActiveTrue(currentEmployee.getTeamId())
+            );
+
+            return;
+        }
+
+        addGroup(
+                groups,
+                "department-" + currentEmployee.getDepartment(),
+                getDepartmentGroupName(currentEmployee.getDepartment()),
+                "DEPARTMENT",
+                null,
+                currentEmployee.getDepartment(),
+                employeeRepository.findByDepartmentIdAndTeamIdIsNullAndIsActiveTrue(
+                        currentEmployee.getDepartment()
+                )
+        );
+    }
+
+    private void addSupervisedGroups(Map<String, EmployeeGroup> groups, Employee currentEmployee) {
+        List<Employee> supervisedEmployees =
+                employeeRepository.findBySupervisorIdAndIsActiveTrue(currentEmployee.getEmail());
+
+        for (Employee employee : supervisedEmployees) {
+            if (belongsToPrimaryGroup(currentEmployee, employee)) {
+                continue;
+            }
+
+            if (employee.getTeamId() != null) {
+                addGroup(
+                        groups,
+                        "supervised-team-" + employee.getTeamId(),
+                        "Supervised Team " + employee.getTeamId(),
+                        "SUPERVISED_TEAM",
+                        employee.getTeamId(),
+                        null,
+                        List.of(employee)
+                );
+            } else {
+                addGroup(
+                        groups,
+                        "supervised-department-" + employee.getDepartment(),
+                        "Supervised " + getDepartmentGroupName(employee.getDepartment()),
+                        "SUPERVISED_DEPARTMENT",
+                        null,
+                        employee.getDepartment(),
+                        List.of(employee)
+                );
+            }
+        }
+    }
+
+    private boolean belongsToPrimaryGroup(Employee currentEmployee, Employee employee) {
+        if (currentEmployee.getTeamId() != null) {
+            return Objects.equals(currentEmployee.getTeamId(), employee.getTeamId());
+        }
+
+        return employee.getTeamId() == null
+                && Objects.equals(currentEmployee.getDepartment(), employee.getDepartment());
+    }
+
+    private String getDepartmentGroupName(Integer departmentId) {
+        String departmentName = departmentRepository.findById(departmentId)
+                .map(department -> department.getName())
+                .orElse(String.valueOf(departmentId));
+
+        return "Department: " + departmentName;
+    }
+
+    private void addGroup(
+            Map<String, EmployeeGroup> groups,
+            String groupKey,
+            String groupName,
+            String groupType,
+            Integer teamId,
+            Integer departmentId,
+            List<Employee> employees
+    ) {
+        EmployeeGroup group = groups.computeIfAbsent(
+                groupKey,
+                key -> new EmployeeGroup(groupKey, groupName, groupType, teamId, departmentId)
+        );
+
+        for (Employee employee : employees) {
+            group.employeeEmails.add(employee.getEmail());
+        }
+    }
+
+    private TeamTaskGroupResponse toTeamTaskGroupResponse(EmployeeGroup group) {
+        List<TaskResponse> taskResponses = new ArrayList<>();
+
+        if (!group.employeeEmails.isEmpty()) {
+            List<TaskAssignment> assignments =
+                    taskAssignmentRepository.findByAssignedTo_EmailIn(
+                            new ArrayList<>(group.employeeEmails)
+                    );
+
+            Map<Integer, Task> tasksById = new LinkedHashMap<>();
+
+            for (TaskAssignment assignment : assignments) {
+                Task task = assignment.getTask();
+                tasksById.putIfAbsent(task.getTaskId(), task);
+            }
+
+            for (Task task : tasksById.values()) {
+                taskResponses.add(new TaskResponse(
+                        task,
+                        taskAssignmentRepository.findByTask_TaskId(task.getTaskId())
+                ));
+            }
+        }
+
+        return new TeamTaskGroupResponse(
+                group.groupKey,
+                group.groupName,
+                group.groupType,
+                group.teamId,
+                group.departmentId,
+                taskResponses
+        );
+    }
+
+    private static class EmployeeGroup {
+        private final String groupKey;
+        private final String groupName;
+        private final String groupType;
+        private final Integer teamId;
+        private final Integer departmentId;
+        private final Set<String> employeeEmails = new LinkedHashSet<>();
+
+        private EmployeeGroup(
+                String groupKey,
+                String groupName,
+                String groupType,
+                Integer teamId,
+                Integer departmentId
+        ) {
+            this.groupKey = groupKey;
+            this.groupName = groupName;
+            this.groupType = groupType;
+            this.teamId = teamId;
+            this.departmentId = departmentId;
+        }
     }
 
     public Task getTaskById(Integer taskId) {
@@ -401,8 +591,31 @@ public class TaskService {
         taskChecklistItemRepository.deleteById(checklistItemId);
     }
 
-    public List<TaskDependency> getTaskDependencies(Integer taskId) {
-        return taskDependencyRepository.findByTask_TaskId(taskId);
+    public List<TaskDependencyResponse> getTaskDependencies(Integer taskId) {
+        taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        return getTaskDependencyResponses(taskId, new LinkedHashSet<>());
+    }
+
+    public List<TaskResponse> getDependencyCandidates(Integer taskId) {
+        taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        return taskRepository.findDependencyCandidatesForTask(taskId)
+                .stream()
+                .filter(task -> !taskDependencyRepository
+                        .existsByTask_TaskIdAndDependsOnTask_TaskIdAndDependencyType(
+                                taskId,
+                                task.getTaskId(),
+                                "BLOCKING"
+                        ))
+                .filter(task -> !wouldCreateCycle(taskId, task.getTaskId()))
+                .map(task -> new TaskResponse(
+                        task,
+                        taskAssignmentRepository.findByTask_TaskId(task.getTaskId())
+                ))
+                .toList();
     }
 
     @Transactional
@@ -410,19 +623,26 @@ public class TaskService {
             Integer taskId,
             CreateTaskDependencyRequest request
     ) {
+        String dependencyType = normalizeDependencyType(request.getDependencyType());
+
         if (taskId.equals(request.getDependsOnTaskId())) {
             throw new RuntimeException("Task cannot depend on itself");
         }
 
         boolean alreadyExists =
                 taskDependencyRepository
-                        .existsByTask_TaskIdAndDependsOnTask_TaskId(
+                        .existsByTask_TaskIdAndDependsOnTask_TaskIdAndDependencyType(
                                 taskId,
-                                request.getDependsOnTaskId()
+                                request.getDependsOnTaskId(),
+                                dependencyType
                         );
 
         if (alreadyExists) {
             throw new RuntimeException("Dependency already exists");
+        }
+
+        if (wouldCreateCycle(taskId, request.getDependsOnTaskId())) {
+            throw new RuntimeException("Dependency would create a cycle");
         }
 
         Task task = taskRepository.findById(taskId)
@@ -431,11 +651,77 @@ public class TaskService {
         Task dependsOnTask = taskRepository.findById(request.getDependsOnTaskId())
                 .orElseThrow(() -> new RuntimeException("Dependency task not found"));
 
+        boolean sameTeamScope = taskRepository.findDependencyCandidatesForTask(taskId)
+                .stream()
+                .anyMatch(candidate -> Objects.equals(
+                        candidate.getTaskId(),
+                        dependsOnTask.getTaskId()
+                ));
+
+        if (!sameTeamScope) {
+            throw new RuntimeException("Dependency task must be from the same team");
+        }
+
         TaskDependency dependency = new TaskDependency();
         dependency.setTask(task);
         dependency.setDependsOnTask(dependsOnTask);
+        dependency.setDependencyType(dependencyType);
 
         return taskDependencyRepository.save(dependency);
+    }
+
+    private String normalizeDependencyType(String dependencyType) {
+        if (dependencyType == null || dependencyType.trim().isEmpty()) {
+            return "BLOCKING";
+        }
+
+        return dependencyType.trim().toUpperCase();
+    }
+
+    private List<TaskDependencyResponse> getTaskDependencyResponses(
+            Integer taskId,
+            Set<Integer> visitedTaskIds
+    ) {
+        if (!visitedTaskIds.add(taskId)) {
+            return List.of();
+        }
+
+        return taskDependencyRepository.findByTask_TaskId(taskId)
+                .stream()
+                .map(dependency -> new TaskDependencyResponse(
+                        dependency,
+                        getTaskDependencyResponses(
+                                dependency.getDependsOnTask().getTaskId(),
+                                new LinkedHashSet<>(visitedTaskIds)
+                        )
+                ))
+                .toList();
+    }
+
+    private boolean wouldCreateCycle(Integer taskId, Integer dependsOnTaskId) {
+        return hasDependencyPath(dependsOnTaskId, taskId, new LinkedHashSet<>());
+    }
+
+    private boolean hasDependencyPath(
+            Integer currentTaskId,
+            Integer targetTaskId,
+            Set<Integer> visitedTaskIds
+    ) {
+        if (Objects.equals(currentTaskId, targetTaskId)) {
+            return true;
+        }
+
+        if (!visitedTaskIds.add(currentTaskId)) {
+            return false;
+        }
+
+        return taskDependencyRepository.findByTask_TaskId(currentTaskId)
+                .stream()
+                .anyMatch(dependency -> hasDependencyPath(
+                        dependency.getDependsOnTask().getTaskId(),
+                        targetTaskId,
+                        visitedTaskIds
+                ));
     }
 
     @Transactional
