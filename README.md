@@ -88,38 +88,7 @@ src/
 
 ## Authors
 
-**Lygia Pampaka** — original project  
-Technology Team, K. Treppides & Co Ltd.
+**Lygia Pampaka**
 
----
-
-## Treppides Deployment Fork (`andreas1612/TM`)
-
-This repository is the **Treppides production deployment** of the Task Manager.
-The upstream/mother project is **https://github.com/lygia-p/TaskManager** (Lygia's repo — do not push there).
-
-### What this fork adds on top of upstream
-
-- **Custom login page** (`login.html`) — dark-themed Microsoft SSO screen, captures `?returnTo` for hub redirect
-- **Hub auth integration** (`SecurityConfig.java`) — CORS for `hub.treppides.com`, 401 for `/api/**` so hub JS can detect unauthenticated state
-- **Root redirect** (`HomeController.java`) — `/` → `/dashboard.html`
-- **Hub return flow** (`dashboard.html`) — after Azure AD login, bounces user back to hub if triggered from there
-
-### Pulling upstream changes from Lygia
-
-```bash
-git fetch upstream
-git merge upstream/main
-```
-
-### Credentials
-
-`application.properties` is **gitignored — never commit it**.
-Copy `application.properties.example` → `application.properties` and fill in real values.
-On the server the real file lives at `~/taskmanager/src/main/resources/application.properties`.
-
-### Production
-
-Deployed on `192.168.0.221` at `https://tasks.treppides.com` (pending IT DNS).
-Task Manager is an independent component — it is accessed from the hub's Projects tab
-but runs entirely on its own domain. The hub never depends on TM's internals.
+Technology Team  
+K. Treppides & Co Ltd.

@@ -10,7 +10,7 @@ public class TaskDependency {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "DependencyId")
+    @Column(name = "TaskDependencyId")
     private Integer dependencyId;
 
     @ManyToOne
@@ -23,6 +23,9 @@ public class TaskDependency {
 
     @Column(name = "CreatedAt")
     private LocalDateTime createdAt;
+
+    @Column(name = "DependencyType", nullable = false, length = 50)
+    private String dependencyType = "BLOCKED_BY";
 
     @PrePersist
     public void onCreate() {
@@ -61,5 +64,13 @@ public class TaskDependency {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getDependencyType() {
+        return dependencyType;
+    }
+
+    public void setDependencyType(String dependencyType) {
+        this.dependencyType = dependencyType;
     }
 }

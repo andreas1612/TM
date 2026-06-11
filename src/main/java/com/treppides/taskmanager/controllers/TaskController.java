@@ -3,10 +3,12 @@ package com.treppides.taskmanager.controllers;
 import com.treppides.taskmanager.dto.AddCommentRequest;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
+import com.treppides.taskmanager.dto.TeamTaskGroupResponse;
 import com.treppides.taskmanager.dto.UpdateStatusRequest;
 import com.treppides.taskmanager.dto.UpdateTaskRequest;
 import com.treppides.taskmanager.dto.CreateChecklistItemRequest;
 import com.treppides.taskmanager.dto.CreateTaskDependencyRequest;
+import com.treppides.taskmanager.dto.TaskDependencyResponse;
 import com.treppides.taskmanager.entities.TaskDependency;
 import com.treppides.taskmanager.entities.TaskChecklistItem;
 import com.treppides.taskmanager.entities.Task;
@@ -43,6 +45,11 @@ public class TaskController {
         return taskService.convertToTaskResponses(
                 taskService.getTeamTasks(email)
         );
+    }
+
+    @GetMapping("/team/{email}/groups")
+    public List<TeamTaskGroupResponse> getTeamTaskGroups(@PathVariable String email) {
+        return taskService.getTeamTaskGroups(email);
     }
 
     @GetMapping("/{taskId}")
@@ -132,11 +139,24 @@ public class TaskController {
     }
 
     @PostMapping("/{taskId}/dependencies")
-    public TaskDependency addTaskDependency(
+    public TaskDependencyResponse addTaskDependency(
             @PathVariable Integer taskId,
             @RequestBody CreateTaskDependencyRequest request
     ) {
-        return taskService.addTaskDependency(taskId, request);
+        return new TaskDependencyResponse(
+                taskService.addTaskDependency(taskId, request),
+                List.of()
+        );
+    }
+
+    @GetMapping("/{taskId}/dependencies")
+    public List<TaskDependencyResponse> getTaskDependencies(@PathVariable Integer taskId) {
+        return taskService.getTaskDependencies(taskId);
+    }
+
+    @GetMapping("/{taskId}/dependency-candidates")
+    public List<TaskResponse> getDependencyCandidates(@PathVariable Integer taskId) {
+        return taskService.getDependencyCandidates(taskId);
     }
 
     @DeleteMapping("/dependencies/{dependencyId}")

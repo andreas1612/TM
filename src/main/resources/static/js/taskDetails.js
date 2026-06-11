@@ -22,6 +22,7 @@ async function initTaskDetailsPage() {
         await loadAvailableEmployees();
         await loadTask();
         await loadChecklist();
+        await loadDependencies();
         await loadComments();
         await loadHistory();
 
@@ -36,6 +37,10 @@ async function initTaskDetailsPage() {
         document
             .getElementById("checklistForm")
             .addEventListener("submit", handleAddChecklistItem);
+
+        document
+            .getElementById("dependencyForm")
+            .addEventListener("submit", handleAddDependency);
                 
         document
             .getElementById("commentForm")
@@ -347,9 +352,174 @@ function formatDateTime(value) {
     return date.toLocaleString();
 }
 
+function formatStatus(status) {
+    if (status === "TO_DO")
+        return "To Do";
+    if (status === "IN_PROGRESS")
+        return "In Progress";
+    if (status === "ON_HOLD")
+        return "On Hold";
+    if (status === "COMPLETED")
+        return "Completed";
+    if (status === "CANCELLED")
+        return "Cancelled";
+    return status || "-";
+}
+
 async function loadChecklist() {
     const items = await getChecklistItems(taskId);
     renderChecklist(items);
+}
+
+async function loadDependencies() {
+    const dependencies = await getTaskDependencies(taskId);
+    const candidates = await getDependencyCandidates(taskId);
+
+    renderDependencies(dependencies);
+    renderDependencyDropdown(candidates);
+}
+
+function renderDependencyDropdown(candidates) {
+    const dropdown =
+        document.getElementById("dependencyDropdown");
+
+    dropdown.innerHTML =
+        "<option value=''>Add dependency...</option>";
+
+    if (!candidates || candidates.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No eligible same-team tasks";
+        option.disabled = true;
+        dropdown.appendChild(option);
+        return;
+    }
+
+    candidates.forEach(task => {
+        const option =
+            document.createElement("option");
+
+        option.value =
+            task.taskId;
+
+        option.textContent =
+            `${task.title} (${formatStatus(task.status)})`;
+
+        dropdown.appendChild(option);
+    });
+}
+
+function renderDependencies(dependencies) {
+    const container =
+        document.getElementById("dependenciesList");
+
+    container.innerHTML = "";
+
+    if (!dependencies || dependencies.length === 0) {
+        container.innerHTML =
+            "<p class='muted'>No dependencies yet.</p>";
+        return;
+    }
+
+    dependencies.forEach(dependency => {
+        container.appendChild(createDependencyNode(dependency, 0));
+    });
+}
+
+function createDependencyNode(dependency, depth) {
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "dependency-node";
+
+    wrapper.style.marginLeft =
+        `${Math.min(depth, 6) * 18}px`;
+
+    wrapper.innerHTML = `
+        <div class="dependency-card">
+            <div>
+                <strong>${dependency.dependsOnTitle}</strong>
+                <p>
+                    ${formatStatus(dependency.dependsOnStatus)}
+                    · ${dependency.dependsOnPriority || "-"}
+                    · ${dependency.dependsOnDueDate || "No due date"}
+                </p>
+            </div>
+
+            <div class="dependency-actions">
+                <button type="button"
+                        class="btn-secondary"
+                        onclick="openDependencyTask(${dependency.dependsOnTaskId})">
+                    Open
+                </button>
+
+                <button type="button"
+                        class="icon-button"
+                        onclick="handleDeleteDependency(${dependency.dependencyId})">
+                    ×
+                </button>
+            </div>
+        </div>
+    `;
+
+    if (dependency.dependencies && dependency.dependencies.length > 0) {
+        dependency.dependencies.forEach(childDependency => {
+            wrapper.appendChild(
+                createDependencyNode(childDependency, depth + 1)
+            );
+        });
+    }
+
+    return wrapper;
+}
+
+async function handleAddDependency(event) {
+    event.preventDefault();
+
+    const dropdown =
+        document.getElementById("dependencyDropdown");
+
+    const dependsOnTaskId =
+        dropdown.value;
+
+    if (!dependsOnTaskId) {
+        return;
+    }
+
+    const message =
+        document.getElementById("dependencyMessage");
+
+    message.innerHTML = "";
+
+    try {
+        await addTaskDependency(taskId, Number(dependsOnTaskId));
+
+        dropdown.value = "";
+        message.innerHTML =
+            "<div class='success'>Dependency added.</div>";
+
+        await loadDependencies();
+        await loadHistory();
+
+        setTimeout(() => {
+            message.innerHTML = "";
+        }, 2500);
+    } catch (error) {
+        console.error(error);
+        message.innerHTML =
+            "<div class='error'>Failed to add dependency.</div>";
+    }
+}
+
+async function handleDeleteDependency(dependencyId) {
+    await deleteTaskDependency(dependencyId);
+    await loadDependencies();
+}
+
+function openDependencyTask(dependencyTaskId) {
+    window.location.href =
+        `/task-details.html?id=${dependencyTaskId}`;
 }
 
 function renderChecklist(items) {

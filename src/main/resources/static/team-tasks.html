@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Tasks</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -36,7 +37,7 @@
             </div>
 
             <div class="header-actions">
-                <button id="themeToggle" class="secondary-button"></button>
+                <button id="themeToggle" class="secondary-button" type="button" aria-label="Toggle color theme"></button>
             </div>
         </header>
 
@@ -44,24 +45,12 @@
 
             <div class="panel-header">
                 <div>
-                    <h2>Team Task List</h2>
-                    <p>Tasks assigned to employees under you</p>
+                    <h2>Team Task Groups</h2>
+                    <p>Tasks grouped by team, department, and supervised exceptions</p>
                 </div>
             </div>
 
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Assigned To</th>
-                        <th>Status</th>
-                        <th>Due Date</th>
-                        <th>Details</th>
-                    </tr>
-                </thead>
-
-                <tbody id="teamTasksTable"></tbody>
-            </table>
+            <div id="teamTaskGroups" class="team-task-groups"></div>
 
         </section>
 

@@ -8,11 +8,11 @@ async function apiRequest(url, options = {}) {
     ...options
   });
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
   const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
 
   if (!text) {
     return null;
@@ -31,6 +31,10 @@ async function getMyTasks(email) {
 
 async function getTeamTasks(email) {
   return apiRequest(`/api/tasks/team/${encodeURIComponent(email)}`);
+}
+
+async function getTeamTaskGroups(email) {
+  return apiRequest(`/api/tasks/team/${encodeURIComponent(email)}/groups`);
 }
 
 async function createTask(task) {
@@ -117,4 +121,28 @@ async function deleteChecklistItem(checklistItemId, changedBy) {
             method: "DELETE"
         }
     );
+}
+
+async function getTaskDependencies(taskId) {
+    return apiRequest(`/api/tasks/${taskId}/dependencies`);
+}
+
+async function getDependencyCandidates(taskId) {
+    return apiRequest(`/api/tasks/${taskId}/dependency-candidates`);
+}
+
+async function addTaskDependency(taskId, dependsOnTaskId, dependencyType = "BLOCKED_BY") {
+    return apiRequest(`/api/tasks/${taskId}/dependencies`, {
+        method: "POST",
+        body: JSON.stringify({
+            dependsOnTaskId,
+            dependencyType
+        })
+    });
+}
+
+async function deleteTaskDependency(dependencyId) {
+    return apiRequest(`/api/tasks/dependencies/${dependencyId}`, {
+        method: "DELETE"
+    });
 }

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Dashboard</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -36,7 +37,7 @@
             </div>
 
             <div class="header-actions">
-                <button id="themeToggle" class="secondary-button" type="button"></button>
+                <button id="themeToggle" class="secondary-button" type="button" aria-label="Toggle color theme"></button>
                 <a href="/create-task.html" class="primary-button">+ New Task</a>
             </div>
         </header>
@@ -138,14 +139,6 @@
     </main>
 </div>
 
-<script>
-    // If login was triggered by the hub (or another page), bounce back there.
-    const _returnTo = sessionStorage.getItem("tm_login_return_to");
-    if (_returnTo) {
-        sessionStorage.removeItem("tm_login_return_to");
-        window.location.replace(_returnTo);
-    }
-</script>
 <script src="/js/api.js"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/dashboard.js"></script>
