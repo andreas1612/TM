@@ -32,6 +32,7 @@ public class PerformanceCardDTO {
 
     private List<PerformanceCardDTO> directReports;
     private TeamSummaryDTO teamSummary;
+    private List<CompanyBreakdownDTO> companyBreakdown;
 
     @Data
     @Builder
@@ -44,5 +45,14 @@ public class PerformanceCardDTO {
         private int greenCount;
         private int amberCount;
         private int redCount;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CompanyBreakdownDTO {
+        private String company;
+        private double hours;
     }
 }

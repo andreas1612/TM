@@ -6,8 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,15 +25,16 @@ public class PerformanceService {
         this.repo = repo;
     }
 
-    public PerformanceCardDTO buildCard(String azureEmail, String period) {
-        Map<String, Object> target = repo.findTargetByAzureEmail(azureEmail)
+    public PerformanceCardDTO buildCard(String email, String period, Integer year, Integer month) {
+        // Resolve email → eSoft code → target data
+        String resolvedCode = repo.findCodeByEmail(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "NON_CHARGEABLE_ROLE"));
+        Map<String, Object> target = repo.findTargetByCode(resolvedCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
 
-        LocalDate[] range = periodRange(period);
-        LocalDate start = range[0];
-        LocalDate end   = range[1];
-        int weeks = (int) (ChronoUnit.DAYS.between(start, end) / 7);
+        PeriodInfo pi = periodRange(period, year, month);
 
         String esoftCode    = (String) target.get("esoft_code");
         String employeeName = (String) target.get("employee_name");
@@ -43,11 +46,9 @@ public class PerformanceService {
             .employeeName(employeeName)
             .level(level)
             .location(nullSafe(target.get("location")))
-            .period(start + "/" + end)
-            .weeksInPeriod(weeks)
-            .targetPct(targetHrsWeek > 0
-                ? round2(targetHrsWeek / 38.5 * 100)  // denominator is resolved per-employee below
-                : 0.0);
+            .period(pi.start + "/" + pi.end)
+            .weeksInPeriod(pi.weeks)
+            .targetPct(100.0);
 
         if ("Maternity".equalsIgnoreCase(level)) {
             return builder
@@ -64,7 +65,7 @@ public class PerformanceService {
                 .build();
         }
 
-        Optional<Map<String, Object>> timesheetOpt = repo.findActualHours(esoftCode, start, end);
+        Optional<Map<String, Object>> timesheetOpt = repo.findActualHours(esoftCode, pi.start, pi.end);
 
         double availHrsWeek = timesheetOpt.map(r -> toDouble(r.get("available_hrs_week"))).orElse(38.5);
         double actualHrs    = timesheetOpt.map(r -> toDouble(r.get("actual_hrs"))).orElse(0.0);
@@ -72,12 +73,20 @@ public class PerformanceService {
         String team         = timesheetOpt.map(r -> nullSafe(r.get("team_name"))).orElse("");
         String el           = timesheetOpt.map(r -> nullSafe(r.get("engagement_leader"))).orElse("");
 
-        double availHrsPeriod  = availHrsWeek * weeks;
-        double targetHrsPeriod = targetHrsWeek * weeks;
-        double chargeability   = availHrsPeriod > 0 ? round2((actualHrs / availHrsPeriod) * 100) : 0.0;
-        double targetPct       = availHrsWeek > 0   ? round2((targetHrsWeek / availHrsWeek) * 100) : 0.0;
+        double availHrsPeriod  = availHrsWeek * pi.weeks;
+        double targetHrsPeriod = targetHrsWeek * pi.weeks;
+        double chargeability   = targetHrsPeriod > 0 ? round2((actualHrs / targetHrsPeriod) * 100) : 0.0;
+        double targetPct       = 100.0;
 
         boolean isManager = !repo.findDirectReports(employeeName).isEmpty();
+
+        List<PerformanceCardDTO.CompanyBreakdownDTO> breakdown = repo.findHoursByCompany(esoftCode, pi.start, pi.end)
+            .stream()
+            .map(r -> PerformanceCardDTO.CompanyBreakdownDTO.builder()
+                .company(nullSafe(r.get("company")))
+                .hours(round2(toDouble(r.get("hours"))))
+                .build())
+            .collect(Collectors.toList());
 
         return builder
             .jobTitle(jobTitle)
@@ -90,32 +99,32 @@ public class PerformanceService {
             .targetPct(targetPct)
             .badge(badge(chargeability, targetPct))
             .isManager(isManager)
+            .companyBreakdown(breakdown)
             .build();
     }
 
-    public PerformanceCardDTO buildTeamCard(String azureEmail, String period) {
-        PerformanceCardDTO managerCard = buildCard(azureEmail, period);
+    public PerformanceCardDTO buildTeamCard(String azureEmail, String period, Integer year, Integer month) {
+        PerformanceCardDTO managerCard = buildCard(azureEmail, period, year, month);
 
         if (!managerCard.isManager()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a manager");
         }
 
-        Map<String, Object> target = repo.findTargetByAzureEmail(azureEmail)
+        String managerCode = repo.findCodeByEmail(azureEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
+        Map<String, Object> target = repo.findTargetByCode(managerCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
         String managerName = (String) target.get("employee_name");
 
         List<Map<String, Object>> reports = repo.findDirectReports(managerName);
 
-        LocalDate[] range = periodRange(period);
-        LocalDate start = range[0];
-        LocalDate end   = range[1];
-        int weeks = (int) (ChronoUnit.DAYS.between(start, end) / 7);
+        PeriodInfo pi = periodRange(period, year, month);
 
         List<String> codes = reports.stream()
             .map(r -> (String) r.get("esoft_code"))
             .collect(Collectors.toList());
 
-        List<Map<String, Object>> timesheets = repo.findTeamActualHours(codes, start, end);
+        List<Map<String, Object>> timesheets = repo.findTeamActualHours(codes, pi.start, pi.end);
         Map<String, Map<String, Object>> tsMap = timesheets.stream()
             .collect(Collectors.toMap(r -> (String) r.get("esoft_code"), r -> r));
 
@@ -131,10 +140,10 @@ public class PerformanceService {
             double availHrsWeek   = ts != null ? toDouble(ts.get("available_hrs_week")) : 38.5;
             double actualHrs      = ts != null ? toDouble(ts.get("actual_hrs")) : 0.0;
 
-            double availHrsPeriod  = availHrsWeek * weeks;
-            double targetHrsPeriod = tgtHrsWeek * weeks;
-            double chargeability   = availHrsPeriod > 0 ? round2((actualHrs / availHrsPeriod) * 100) : 0.0;
-            double targetPct       = availHrsWeek > 0   ? round2((tgtHrsWeek / availHrsWeek) * 100) : 0.0;
+            double availHrsPeriod  = availHrsWeek * pi.weeks;
+            double targetHrsPeriod = tgtHrsWeek * pi.weeks;
+            double chargeability   = targetHrsPeriod > 0 ? round2((actualHrs / targetHrsPeriod) * 100) : 0.0;
+            double targetPct       = 100.0;
             String b               = "Maternity".equalsIgnoreCase(lvl) ? "EXEMPT" : badge(chargeability, targetPct);
 
             directCards.add(PerformanceCardDTO.builder()
@@ -142,8 +151,8 @@ public class PerformanceService {
                 .employeeName(name)
                 .level(lvl)
                 .location(loc)
-                .period(start + "/" + end)
-                .weeksInPeriod(weeks)
+                .period(pi.start + "/" + pi.end)
+                .weeksInPeriod(pi.weeks)
                 .actualHrs(round2(actualHrs))
                 .availableHrsPeriod(round2(availHrsPeriod))
                 .targetHrsPeriod(round2(targetHrsPeriod))
@@ -163,8 +172,7 @@ public class PerformanceService {
         double avgPct  = gradedCards.isEmpty() ? 0.0
             : round2(gradedCards.stream().mapToDouble(PerformanceCardDTO::getChargeabilityPct).average().orElse(0));
 
-        double teamTargetPct = gradedCards.isEmpty() ? 0.0
-            : round2(gradedCards.stream().mapToDouble(PerformanceCardDTO::getTargetPct).average().orElse(0));
+        double teamTargetPct = 100.0;
 
         PerformanceCardDTO.TeamSummaryDTO summary = PerformanceCardDTO.TeamSummaryDTO.builder()
             .headCount(directCards.size())
@@ -182,13 +190,54 @@ public class PerformanceService {
 
     // ---- helpers ----
 
-    private static LocalDate[] periodRange(String period) {
+    private record PeriodInfo(LocalDate start, LocalDate end, int weeks) {}
+
+    /**
+     * PBI-style Monday-based period calculation.
+     * Matches Power BI week counting — validated against PBI output.
+     * For current month, only counts completed weeks (Friday has passed).
+     */
+    private static PeriodInfo periodRange(String period, Integer year, Integer month) {
         LocalDate today = LocalDate.now();
+        int yr = year != null ? year : today.getYear();
+        int mo = month != null ? month : today.getMonthValue();
+
         if ("ytd".equalsIgnoreCase(period)) {
-            return new LocalDate[]{LocalDate.of(today.getYear(), 1, 1), today.plusDays(1)};
+            LocalDate firstMon = mondayOnOrAfter(LocalDate.of(yr, 1, 1));
+            LocalDate lastMon  = mondayOnOrBefore(yr == today.getYear() ? today : LocalDate.of(yr, 12, 31));
+            if (lastMon.isBefore(firstMon)) {
+                return new PeriodInfo(firstMon, firstMon.plusDays(7), 1);
+            }
+            int weeks = (int) (ChronoUnit.DAYS.between(firstMon, lastMon) / 7) + 1;
+            return new PeriodInfo(firstMon, lastMon.plusDays(7), weeks);
         }
-        LocalDate first = today.withDayOfMonth(1);
-        return new LocalDate[]{first, first.plusMonths(1)};
+
+        // Month period — PBI includes Mondays in [1st_of_month, 1st_of_next_month]
+        LocalDate firstOfMonth = LocalDate.of(yr, mo, 1);
+        LocalDate firstOfNext  = firstOfMonth.plusMonths(1);
+
+        LocalDate firstMon = mondayOnOrAfter(firstOfMonth);
+        LocalDate lastMon  = mondayOnOrBefore(firstOfNext); // PBI includes overlap Monday
+
+        // For current/future month, only count completed weeks (Friday has passed)
+        if (firstOfNext.isAfter(today)) {
+            LocalDate cap = mondayOnOrBefore(today.minusDays(4));
+            if (cap.isBefore(firstMon)) {
+                return new PeriodInfo(firstMon, firstMon.plusDays(7), 0);
+            }
+            lastMon = cap;
+        }
+
+        int weeks = (int) (ChronoUnit.DAYS.between(firstMon, lastMon) / 7) + 1;
+        return new PeriodInfo(firstMon, lastMon.plusDays(7), weeks);
+    }
+
+    private static LocalDate mondayOnOrAfter(LocalDate d) {
+        return d.getDayOfWeek() == DayOfWeek.MONDAY ? d : d.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+    }
+
+    private static LocalDate mondayOnOrBefore(LocalDate d) {
+        return d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }
 
     private static String badge(double actual, double target) {

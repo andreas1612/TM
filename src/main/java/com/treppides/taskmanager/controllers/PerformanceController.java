@@ -24,15 +24,19 @@ public class PerformanceController {
     @GetMapping("/me")
     public PerformanceCardDTO me(
             Authentication auth,
-            @RequestParam(defaultValue = "month") String period) {
-        return service.buildCard(resolveEmail(auth), period);
+            @RequestParam(defaultValue = "month") String period,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        return service.buildCard(resolveEmail(auth), period, year, month);
     }
 
     @GetMapping("/team")
     public PerformanceCardDTO team(
             Authentication auth,
-            @RequestParam(defaultValue = "month") String period) {
-        PerformanceCardDTO card = service.buildTeamCard(resolveEmail(auth), period);
+            @RequestParam(defaultValue = "month") String period,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        PerformanceCardDTO card = service.buildTeamCard(resolveEmail(auth), period, year, month);
         if (!card.isManager()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a manager");
         }
