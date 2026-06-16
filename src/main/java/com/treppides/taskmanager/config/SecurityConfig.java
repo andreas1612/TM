@@ -27,6 +27,9 @@ public class SecurityConfig {
                 .requestMatchers("/", "/login.html", "/error", "/css/**", "/js/**", "/favicon.ico").permitAll()
                 .anyRequest().authenticated()
             )
+            .headers(headers -> headers
+                .xssProtection(xss -> xss.disable())
+            )
             // API endpoints return 401 (not 302 redirect) so the hub fetch() can detect it.
             .exceptionHandling(ex -> ex
                 .defaultAuthenticationEntryPointFor(
