@@ -2,6 +2,7 @@ package com.treppides.taskmanager.services;
 
 import com.treppides.taskmanager.dto.BudgetKpiDTO;
 import com.treppides.taskmanager.repositories.BudgetRepository;
+import com.treppides.taskmanager.repositories.FeeAdjustmentRepository;
 import com.treppides.taskmanager.repositories.PerformanceRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,10 +18,12 @@ import java.util.stream.Collectors;
 public class BudgetKpiService {
 
     private final BudgetRepository budgetRepo;
+    private final FeeAdjustmentRepository feeRepo;
     private final PerformanceRepository perfRepo;
 
-    public BudgetKpiService(BudgetRepository budgetRepo, PerformanceRepository perfRepo) {
+    public BudgetKpiService(BudgetRepository budgetRepo, FeeAdjustmentRepository feeRepo, PerformanceRepository perfRepo) {
         this.budgetRepo = budgetRepo;
+        this.feeRepo = feeRepo;
         this.perfRepo = perfRepo;
     }
 
@@ -68,13 +71,30 @@ public class BudgetKpiService {
             invoicedByMonth.put(toInt(row.get("month_num")), toDouble(row.get("invoiced")));
         }
 
+        // Fee adjustments from InvoiceAllocation DB
+        Map<Integer, Double> auditByMonth = new HashMap<>();
+        Map<Integer, Double> taxByMonth = new HashMap<>();
+        try {
+            List<Map<String, Object>> feeSums = feeRepo.findMonthlySums(invoiceCode, yr);
+            for (Map<String, Object> row : feeSums) {
+                int mo = toInt(row.get("month_num"));
+                auditByMonth.put(mo, toDouble(row.get("audit_fees")));
+                taxByMonth.put(mo, toDouble(row.get("tax_fees")));
+            }
+        } catch (Exception e) {
+            // InvoiceAllocation DB may be unavailable — continue without fee adjustments
+        }
+
         // Build monthly KPI
         List<BudgetKpiDTO.MonthKpiDTO> months = new ArrayList<>();
         double cumBudget = 0, cumInvoiced = 0;
 
         for (int m = 1; m <= 12; m++) {
             double bgt = budgetByMonth.getOrDefault(m, 0.0);
-            double inv = invoicedByMonth.getOrDefault(m, 0.0);
+            double esoftInv = invoicedByMonth.getOrDefault(m, 0.0);
+            double audit = auditByMonth.getOrDefault(m, 0.0);
+            double tax = taxByMonth.getOrDefault(m, 0.0);
+            double inv = esoftInv + audit + tax;
             double pct = bgt > 0 ? round2((inv / bgt) * 100) : 0.0;
 
             cumBudget += bgt;
@@ -85,6 +105,9 @@ public class BudgetKpiService {
                 .monthName(Month.of(m).getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
                 .budget(round2(bgt))
                 .invoiced(round2(inv))
+                .esoftInvoiced(round2(esoftInv))
+                .auditFees(round2(audit))
+                .taxFees(round2(tax))
                 .completionPct(pct)
                 .badge(badge(pct))
                 .build());
@@ -145,6 +168,17 @@ public class BudgetKpiService {
         for (Map<String, Object> row : invoicedRows) {
             String code = (String) row.get("invoice_code");
             totalInvoiced.merge(code, toDouble(row.get("invoiced")), Double::sum);
+        }
+
+        // Add fee adjustments to invoiced totals
+        try {
+            List<Map<String, Object>> bulkFees = feeRepo.findBulkSums(codes, year);
+            for (Map<String, Object> row : bulkFees) {
+                String code = (String) row.get("invoice_code");
+                totalInvoiced.merge(code, toDouble(row.get("total_fees")), Double::sum);
+            }
+        } catch (Exception e) {
+            // InvoiceAllocation DB may be unavailable
         }
 
         // Compute each manager's completion % and average them

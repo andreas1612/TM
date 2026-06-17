@@ -40,6 +40,9 @@ public class BudgetKpiDTO {
         private String monthName;
         private double budget;
         private double invoiced;
+        private double esoftInvoiced;
+        private double auditFees;
+        private double taxFees;
         private double completionPct;
         private String badge;
     }
