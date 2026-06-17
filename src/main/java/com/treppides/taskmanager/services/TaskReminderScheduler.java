@@ -4,6 +4,8 @@ import com.treppides.taskmanager.entities.Task;
 import com.treppides.taskmanager.entities.TaskAssignment;
 import com.treppides.taskmanager.repositories.TaskAssignmentRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +14,8 @@ import java.util.List;
 
 @Service
 public class TaskReminderScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskReminderScheduler.class);
 
     private final TaskRepository taskRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
@@ -28,7 +32,7 @@ public class TaskReminderScheduler {
     @Scheduled(cron = "0 0 8 * * *")
     public void checkUpComingDueTasks() {
 
-        System.out.println("Scheduler running...");
+        log.info("Scheduler running...");
 
         List<Task> tasks =
                 taskRepository.findByDueDateIsNotNullAndStatusNotIn(
@@ -40,22 +44,13 @@ public class TaskReminderScheduler {
 
         for (Task task : tasks) {
 
-            System.out.println(
-                    "Checking task: "
-                            + task.getTitle()
-                            + " | Due: "
-                            + task.getDueDate()
-                            + " | Priority: "
-                            + task.getPriority()
-            );
+            log.debug("Checking task: {} | Due: {} | Priority: {}",
+                    task.getTitle(), task.getDueDate(), task.getPriority());
 
             String reminderType =
                     getReminderType(task, today);
 
-            System.out.println(
-                    "Reminder type: "
-                            + reminderType
-            );
+            log.debug("Reminder type: {}", reminderType);
 
             if (reminderType != null) {
                 notifyAssignees(task, reminderType);
@@ -147,14 +142,8 @@ public class TaskReminderScheduler {
                     reminderType
             );
 
-            System.out.println(
-                    "Reminder email sent: "
-                            + reminderType
-                            + " | Task: "
-                            + task.getTitle()
-                            + " | To: "
-                            + assignment.getAssignedTo().getEmail()
-            );
+            log.info("Reminder email sent: {} | Task: {} | To: {}",
+                    reminderType, task.getTitle(), assignment.getAssignedTo().getEmail());
         }
     }
 }

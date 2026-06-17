@@ -1,8 +1,14 @@
 package com.treppides.taskmanager.dto;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 public class CreateTaskDependencyRequest {
 
+    @NotNull
     private Integer dependsOnTaskId;
+
+    @Size(max = 50)
     private String dependencyType;
 
     public Integer getDependsOnTaskId() {

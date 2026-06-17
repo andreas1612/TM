@@ -1,8 +1,13 @@
 package com.treppides.taskmanager.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class UpdateStatusRequest {
 
+    @NotBlank @Size(max = 50)
     private String status;
+
     private String changedBy;
 
     public String getStatus() { return status; }

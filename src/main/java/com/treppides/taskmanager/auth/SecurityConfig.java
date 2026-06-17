@@ -1,4 +1,4 @@
-package com.treppides.taskmanager.config;
+package com.treppides.taskmanager.auth;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

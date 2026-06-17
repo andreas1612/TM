@@ -1,8 +1,7 @@
-package com.treppides.taskmanager.controllers;
+package com.treppides.taskmanager.auth;
 
 import com.treppides.taskmanager.repositories.BudgetRepository;
 import com.treppides.taskmanager.repositories.PerformanceRepository;
-import com.treppides.taskmanager.services.AdminService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.GetMapping;

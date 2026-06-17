@@ -1,4 +1,4 @@
-package com.treppides.taskmanager.config;
+package com.treppides.taskmanager.auth;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

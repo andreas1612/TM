@@ -1,7 +1,7 @@
 package com.treppides.taskmanager.controllers;
 
 import com.treppides.taskmanager.dto.PerformanceCardDTO;
-import com.treppides.taskmanager.services.AdminService;
+import com.treppides.taskmanager.auth.AdminService;
 import com.treppides.taskmanager.services.PerformanceService;
 import com.treppides.taskmanager.repositories.PerformanceRepository;
 import org.springframework.http.HttpStatus;

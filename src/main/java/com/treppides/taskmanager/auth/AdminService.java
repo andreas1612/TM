@@ -1,4 +1,4 @@
-package com.treppides.taskmanager.services;
+package com.treppides.taskmanager.auth;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

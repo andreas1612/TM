@@ -3,7 +3,7 @@ package com.treppides.taskmanager.controllers;
 import com.treppides.taskmanager.dto.BudgetKpiDTO;
 import com.treppides.taskmanager.repositories.BudgetRepository;
 import com.treppides.taskmanager.repositories.FeeAdjustmentRepository;
-import com.treppides.taskmanager.services.AdminService;
+import com.treppides.taskmanager.auth.AdminService;
 import com.treppides.taskmanager.services.BudgetKpiService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
