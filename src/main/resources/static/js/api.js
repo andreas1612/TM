@@ -51,6 +51,15 @@ async function updateTaskStatus(taskId, status, changedBy) {
   });
 }
 
+async function archiveTask(taskId, changedBy) {
+    return apiRequest(
+        `/api/tasks/${taskId}/archive?changedBy=${encodeURIComponent(changedBy)}`,
+        {
+            method: "PUT"
+        }
+    );
+}
+
 async function getTaskById(taskId) {
     return apiRequest(`/api/tasks/${taskId}`);
 }

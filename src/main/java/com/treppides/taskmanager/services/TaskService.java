@@ -221,7 +221,9 @@ public class TaskService {
 
             for (TaskAssignment assignment : assignments) {
                 Task task = assignment.getTask();
-                tasksById.putIfAbsent(task.getTaskId(), task);
+                if (!task.isArchived()) {
+                    tasksById.putIfAbsent(task.getTaskId(), task);
+                }
             }
 
             for (Task task : tasksById.values()) {
@@ -355,7 +357,11 @@ public class TaskService {
         List<Task> tasks = new ArrayList<>();
 
         for (TaskAssignment assignment : assignments) {
-            tasks.add(assignment.getTask());
+            Task task = assignment.getTask();
+
+            if (!task.isArchived()) {
+                tasks.add(task);
+            }
         }
 
         return tasks;
@@ -423,6 +429,22 @@ public class TaskService {
 
         if (request.getAssignedTo() != null) {
             updateTaskAssignments(task, request.getAssignedTo(), changedBy);
+        }
+
+        return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task archiveTask(Integer taskId, String changedByEmail) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        if (!task.isArchived()) {
+            addHistory(task, changedBy, "Archive", "Active", "Archived");
+            task.setIsArchived(true);
         }
 
         return taskRepository.save(task);

@@ -33,6 +33,10 @@ async function initTaskDetailsPage() {
         document
             .getElementById("taskForm")
             .addEventListener("submit", handleSaveTask);
+
+        document
+            .getElementById("archiveTaskButton")
+            .addEventListener("click", handleArchiveTask);
         
         document
             .getElementById("checklistForm")
@@ -350,6 +354,35 @@ function formatDateTime(value) {
     }
 
     return date.toLocaleString();
+}
+
+async function handleArchiveTask() {
+    const confirmed =
+        window.confirm("Archive this task? It will be hidden from task lists but kept in the database.");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const message =
+        document.getElementById("saveMessage");
+
+    message.innerHTML = "";
+
+    try {
+        await archiveTask(taskId, currentUser.email);
+
+        message.innerHTML =
+            "<div class='success'>Task archived.</div>";
+
+        window.location.href =
+            "/my-tasks.html";
+    } catch (error) {
+        console.error(error);
+
+        message.innerHTML =
+            "<div class='error'>Failed to archive task.</div>";
+    }
 }
 
 function formatStatus(status) {

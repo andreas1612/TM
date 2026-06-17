@@ -149,6 +149,14 @@ public class TaskController {
         );
     }
 
+    @PutMapping("/{taskId}/archive")
+    public Task archiveTask(
+            @PathVariable Integer taskId,
+            @RequestParam String changedBy
+    ) {
+        return taskService.archiveTask(taskId, changedBy);
+    }
+
     @GetMapping("/{taskId}/dependencies")
     public List<TaskDependencyResponse> getTaskDependencies(@PathVariable Integer taskId) {
         return taskService.getTaskDependencies(taskId);

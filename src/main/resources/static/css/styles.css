@@ -386,6 +386,57 @@ select {
   color: var(--muted);
 }
 
+.sort-header {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.sort-header:hover,
+.sort-header.active {
+  color: var(--text);
+}
+
+.sort-header.active::after {
+  content: " ↑";
+}
+
+.sort-header.active[data-direction="desc"]::after {
+  content: " ↓";
+}
+
+.table-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.team-table-filters {
+  grid-template-columns: minmax(180px, 1.3fr) minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr);
+}
+
+.table-filters input,
+.table-filters select {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.table-filters input::placeholder {
+  color: var(--muted);
+}
+
 /* ---------- Forms ---------- */
 
 select {
@@ -438,6 +489,21 @@ html[data-theme="dark"] select {
   margin-top: 24px;
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.archive-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--danger-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 400;
+}
+
+.archive-link:hover {
+  text-decoration: underline;
 }
 
 .inline-form input,
@@ -495,6 +561,11 @@ html[data-theme="dark"] select {
   .main-content,
   .page {
     padding: 20px;
+  }
+
+  .table-filters,
+  .team-table-filters {
+    grid-template-columns: 1fr;
   }
 
   .header,
