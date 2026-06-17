@@ -89,6 +89,12 @@ async function getDirectReports(email) {
     );
 }
 
+async function getAssignableEmployees(email) {
+    return apiRequest(
+        `/api/employees/assignable/${encodeURIComponent(email)}`
+    );
+}
+
 async function getChecklistItems(taskId) {
     return apiRequest(`/api/tasks/${taskId}/checklist`);
 }

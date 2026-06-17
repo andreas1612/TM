@@ -22,6 +22,8 @@ import com.treppides.taskmanager.repositories.TaskCommentRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
 import com.treppides.taskmanager.repositories.TaskDependencyRepository;
+import com.treppides.taskmanager.repositories.TeamRepository;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final TeamRepository teamRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
@@ -50,6 +53,7 @@ public class TaskService {
     public TaskService(TaskRepository taskRepository,
                    EmployeeRepository employeeRepository,
                    DepartmentRepository departmentRepository,
+                   TeamRepository teamRepository,
                    TaskAssignmentRepository taskAssignmentRepository,
                    TaskHistoryRepository taskHistoryRepository,
                    TaskCommentRepository taskCommentRepository,
@@ -58,6 +62,7 @@ public class TaskService {
     this.taskRepository = taskRepository;
     this.employeeRepository = employeeRepository;
     this.departmentRepository = departmentRepository;
+    this.teamRepository = teamRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
     this.taskHistoryRepository = taskHistoryRepository;
     this.taskCommentRepository = taskCommentRepository;
@@ -101,7 +106,7 @@ public class TaskService {
             addGroup(
                     groups,
                     "team-" + currentEmployee.getTeamId(),
-                    "Team " + currentEmployee.getTeamId(),
+                    getTeamGroupName(currentEmployee.getTeamId()),
                     "TEAM",
                     currentEmployee.getTeamId(),
                     null,
@@ -137,7 +142,7 @@ public class TaskService {
                 addGroup(
                         groups,
                         "supervised-team-" + employee.getTeamId(),
-                        "Supervised Team " + employee.getTeamId(),
+                        "Supervised " + getTeamGroupName(employee.getTeamId()),
                         "SUPERVISED_TEAM",
                         employee.getTeamId(),
                         null,
@@ -172,6 +177,16 @@ public class TaskService {
                 .orElse(String.valueOf(departmentId));
 
         return "Department: " + departmentName;
+    }
+
+    private String getTeamGroupName(Integer teamId) {
+        try {
+            return teamRepository.findById(teamId)
+                    .map(team -> team.getName())
+                    .orElse("Team " + teamId);
+        } catch (DataAccessException exception) {
+            return "Team " + teamId;
+        }
     }
 
     private void addGroup(

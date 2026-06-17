@@ -54,7 +54,7 @@ async function initTaskDetailsPage() {
 }
 
 async function loadAvailableEmployees() {
-    const employees = await getDirectReports(currentUser.email);
+    const employees = await getAssignableEmployees(currentUser.email);
 
     availableEmployees = [
         {

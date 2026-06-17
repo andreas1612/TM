@@ -21,4 +21,9 @@ public class EmployeeController {
     public List<EmployeeOptionResponse> getDirectReports(@PathVariable String email) {
         return employeeService.getDirectReports(email);
     }
+
+    @GetMapping("/assignable/{email}")
+    public List<EmployeeOptionResponse> getAssignableEmployees(@PathVariable String email) {
+        return employeeService.getAssignableEmployees(email);
+    }
 }
