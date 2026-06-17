@@ -53,7 +53,7 @@ public class BudgetRepository {
         if (invoiceCode == null) return Collections.emptyList();
         return esoftJdbc.queryForList("""
             SELECT invsavehd_period  AS month_num,
-                   SUM(invsavehd_docval - invsavehd_docvat) AS invoiced
+                   SUM((invsavehd_docval - invsavehd_docvat) * invsavehd_sign * -1) AS invoiced
             FROM   dbo.invsaveheaders
             WHERE  invsavehd_H4 = ?
               AND  invsavehd_year = ?
@@ -89,7 +89,7 @@ public class BudgetRepository {
         return esoftNamedJdbc.queryForList("""
             SELECT invsavehd_H4        AS invoice_code,
                    invsavehd_period     AS month_num,
-                   SUM(invsavehd_docval - invsavehd_docvat) AS invoiced
+                   SUM((invsavehd_docval - invsavehd_docvat) * invsavehd_sign * -1) AS invoiced
             FROM   dbo.invsaveheaders
             WHERE  invsavehd_H4 IN (:codes)
               AND  invsavehd_year = :year
