@@ -50,6 +50,23 @@
                 </div>
             </div>
 
+            <div class="table-filters team-table-filters">
+                <input id="teamTitleFilter" type="search" aria-label="Filter by title" placeholder="Title">
+
+                <input id="teamAssignedFilter" type="search" aria-label="Filter by assignee" placeholder="Assigned to">
+
+                <select id="teamStatusFilter" aria-label="Filter by status">
+                    <option value="">All statuses</option>
+                    <option value="TO_DO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+
+                <input id="teamDueDateFilter" type="search" aria-label="Filter by due date" placeholder="Due date">
+            </div>
+
             <div id="teamTaskGroups" class="team-task-groups"></div>
 
         </section>

@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", initCreateTaskPage);
 let currentUser = null;
 let selectedEmployees = [];
 let availableEmployees = [];
+let employeeFilter = "";
 
 async function initCreateTaskPage() {
     try {
@@ -11,7 +12,11 @@ async function initCreateTaskPage() {
         document.getElementById("userName").innerText =
             currentUser.name;
 
-        await loadDirectReports();
+        await loadAssignableEmployees();
+
+        document
+            .getElementById("employeeFilter")
+            .addEventListener("input", handleEmployeeFilterInput);
 
         document
             .getElementById("employeeDropdown")
@@ -29,9 +34,9 @@ async function initCreateTaskPage() {
     }
 }
 
-async function loadDirectReports() {
+async function loadAssignableEmployees() {
     const employees =
-        await getDirectReports(currentUser.email);
+        await getAssignableEmployees(currentUser.email);
 
     availableEmployees = [
         {
@@ -56,10 +61,28 @@ function renderEmployeeDropdown() {
     dropdown.innerHTML =
         "<option value=''>Add employee...</option>";
 
+    const normalizedFilter =
+        employeeFilter.trim().toLowerCase();
+
     const remainingEmployees =
         availableEmployees.filter(employee =>
             !selectedEmployees.includes(employee.email)
+            && employeeMatchesFilter(employee, normalizedFilter)
         );
+
+    if (remainingEmployees.length === 0) {
+        const option =
+            document.createElement("option");
+
+        option.value = "";
+        option.textContent = normalizedFilter
+            ? "No matching employees"
+            : "No employees available";
+        option.disabled = true;
+
+        dropdown.appendChild(option);
+        return;
+    }
 
     remainingEmployees.forEach(employee => {
         const option =
@@ -73,6 +96,22 @@ function renderEmployeeDropdown() {
 
         dropdown.appendChild(option);
     });
+}
+
+function handleEmployeeFilterInput(event) {
+    employeeFilter =
+        event.target.value;
+
+    renderEmployeeDropdown();
+}
+
+function employeeMatchesFilter(employee, normalizedFilter) {
+    if (!normalizedFilter) {
+        return true;
+    }
+
+    return employee.fullName.toLowerCase().includes(normalizedFilter)
+        || employee.email.toLowerCase().includes(normalizedFilter);
 }
 
 function handleEmployeeDropdownChange(event) {

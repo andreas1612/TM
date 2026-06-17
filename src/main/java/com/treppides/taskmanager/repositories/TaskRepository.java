@@ -17,6 +17,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
         JOIN EMPLOYEES currentUser ON currentUser.EMAIL = :email
         WHERE e.TEAMID = currentUser.TEAMID
           AND e.ISACTIVE = 1
+          AND COALESCE(t.IsArchived, 0) = 0
     """, nativeQuery = true)
     List<Task> findTasksForTeam(@Param("email") String email);
 
@@ -33,6 +34,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
             ON currentAssignment.AssignedTo = currentEmployee.EMAIL
         WHERE candidate.TaskId <> :taskId
           AND candidateEmployee.ISACTIVE = 1
+          AND COALESCE(candidate.IsArchived, 0) = 0
           AND candidate.Status NOT IN ('COMPLETED', 'CANCELLED', 'DONE')
           AND (
               (
@@ -48,5 +50,5 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
     """, nativeQuery = true)
     List<Task> findDependencyCandidatesForTask(@Param("taskId") Integer taskId);
 
-    List<Task> findByDueDateIsNotNullAndStatusNotIn(List<String> statuses);
+    List<Task> findByDueDateIsNotNullAndStatusNotInAndIsArchivedFalse(List<String> statuses);
 }

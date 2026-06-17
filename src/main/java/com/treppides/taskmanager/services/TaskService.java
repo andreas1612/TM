@@ -22,6 +22,8 @@ import com.treppides.taskmanager.repositories.TaskCommentRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import com.treppides.taskmanager.repositories.TaskRepository;
 import com.treppides.taskmanager.repositories.TaskDependencyRepository;
+import com.treppides.taskmanager.repositories.TeamRepository;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final TeamRepository teamRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
@@ -50,6 +53,7 @@ public class TaskService {
     public TaskService(TaskRepository taskRepository,
                    EmployeeRepository employeeRepository,
                    DepartmentRepository departmentRepository,
+                   TeamRepository teamRepository,
                    TaskAssignmentRepository taskAssignmentRepository,
                    TaskHistoryRepository taskHistoryRepository,
                    TaskCommentRepository taskCommentRepository,
@@ -58,6 +62,7 @@ public class TaskService {
     this.taskRepository = taskRepository;
     this.employeeRepository = employeeRepository;
     this.departmentRepository = departmentRepository;
+    this.teamRepository = teamRepository;
     this.taskAssignmentRepository = taskAssignmentRepository;
     this.taskHistoryRepository = taskHistoryRepository;
     this.taskCommentRepository = taskCommentRepository;
@@ -101,7 +106,7 @@ public class TaskService {
             addGroup(
                     groups,
                     "team-" + currentEmployee.getTeamId(),
-                    "Team " + currentEmployee.getTeamId(),
+                    getTeamGroupName(currentEmployee.getTeamId()),
                     "TEAM",
                     currentEmployee.getTeamId(),
                     null,
@@ -137,7 +142,7 @@ public class TaskService {
                 addGroup(
                         groups,
                         "supervised-team-" + employee.getTeamId(),
-                        "Supervised Team " + employee.getTeamId(),
+                        "Supervised " + getTeamGroupName(employee.getTeamId()),
                         "SUPERVISED_TEAM",
                         employee.getTeamId(),
                         null,
@@ -174,6 +179,16 @@ public class TaskService {
         return "Department: " + departmentName;
     }
 
+    private String getTeamGroupName(Integer teamId) {
+        try {
+            return teamRepository.findById(teamId)
+                    .map(team -> team.getName())
+                    .orElse("Team " + teamId);
+        } catch (DataAccessException exception) {
+            return "Team " + teamId;
+        }
+    }
+
     private void addGroup(
             Map<String, EmployeeGroup> groups,
             String groupKey,
@@ -206,7 +221,9 @@ public class TaskService {
 
             for (TaskAssignment assignment : assignments) {
                 Task task = assignment.getTask();
-                tasksById.putIfAbsent(task.getTaskId(), task);
+                if (!task.isArchived()) {
+                    tasksById.putIfAbsent(task.getTaskId(), task);
+                }
             }
 
             for (Task task : tasksById.values()) {
@@ -340,7 +357,11 @@ public class TaskService {
         List<Task> tasks = new ArrayList<>();
 
         for (TaskAssignment assignment : assignments) {
-            tasks.add(assignment.getTask());
+            Task task = assignment.getTask();
+
+            if (!task.isArchived()) {
+                tasks.add(task);
+            }
         }
 
         return tasks;
@@ -408,6 +429,22 @@ public class TaskService {
 
         if (request.getAssignedTo() != null) {
             updateTaskAssignments(task, request.getAssignedTo(), changedBy);
+        }
+
+        return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task archiveTask(Integer taskId, String changedByEmail) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        if (!task.isArchived()) {
+            addHistory(task, changedBy, "Archive", "Active", "Archived");
+            task.setIsArchived(true);
         }
 
         return taskRepository.save(task);
