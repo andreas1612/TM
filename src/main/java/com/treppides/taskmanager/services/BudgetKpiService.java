@@ -35,22 +35,24 @@ public class BudgetKpiService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "Employee not found in eSoft"));
 
-        return buildKpiForCode(esoftCode, yr);
-    }
-
-    /** Build KPI directly from eSoft code (admin use). */
-    public BudgetKpiDTO buildKpiByCode(String esoftCode, Integer year) {
-        int yr = year != null ? year : LocalDate.now().getYear();
-        return buildKpiForCode(esoftCode, yr);
-    }
-
-    private BudgetKpiDTO buildKpiForCode(String esoftCode, int yr) {
-
-        // Find budget entry
         Map<String, Object> budgetInfo = budgetRepo.findBudgetByEsoftCode(esoftCode, yr)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No budget data for this employee"));
+        return buildKpiFromBudgetInfo(budgetInfo, yr);
+    }
 
+    /** Build KPI by invoice code — works for all managers including those without eSoft codes. */
+    public BudgetKpiDTO buildKpiByInvoiceCode(String invoiceCode, Integer year) {
+        int yr = year != null ? year : LocalDate.now().getYear();
+        Map<String, Object> budgetInfo = budgetRepo.findBudgetByInvoiceCode(invoiceCode, yr)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No budget data for this manager"));
+        return buildKpiFromBudgetInfo(budgetInfo, yr);
+    }
+
+    private BudgetKpiDTO buildKpiFromBudgetInfo(Map<String, Object> budgetInfo, int yr) {
+
+        String esoftCode   = nullSafe(budgetInfo.get("esoft_code"));
         String managerName = (String) budgetInfo.get("manager_name");
         String invoiceCode = (String) budgetInfo.get("invoice_code");
         String department  = nullSafe(budgetInfo.get("department"));
@@ -181,19 +183,14 @@ public class BudgetKpiService {
             // InvoiceAllocation DB may be unavailable
         }
 
-        // Compute each manager's completion % and average them
-        double pctSum = 0;
-        int count = 0;
+        // Pooled average: sum all budgets and invoiced, then compute single ratio (matches PBI)
+        double totalBgt = 0, totalInv = 0;
         for (String code : codes) {
-            double bgt = totalBudgets.getOrDefault(code, 0.0);
-            double inv = totalInvoiced.getOrDefault(code, 0.0);
-            if (bgt > 0) {
-                pctSum += (inv / bgt) * 100;
-                count++;
-            }
+            totalBgt += totalBudgets.getOrDefault(code, 0.0);
+            totalInv += totalInvoiced.getOrDefault(code, 0.0);
         }
 
-        return count > 0 ? round2(pctSum / count) : 0.0;
+        return totalBgt > 0 ? round2((totalInv / totalBgt) * 100) : 0.0;
     }
 
     // ---- helpers ----

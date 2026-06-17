@@ -53,7 +53,7 @@ public class BudgetRepository {
         if (invoiceCode == null) return Collections.emptyList();
         return esoftJdbc.queryForList("""
             SELECT invsavehd_period  AS month_num,
-                   SUM(invsavehd_docval) AS invoiced
+                   SUM(invsavehd_docval - invsavehd_docvat) AS invoiced
             FROM   dbo.invsaveheaders
             WHERE  invsavehd_H4 = ?
               AND  invsavehd_year = ?
@@ -89,12 +89,23 @@ public class BudgetRepository {
         return esoftNamedJdbc.queryForList("""
             SELECT invsavehd_H4        AS invoice_code,
                    invsavehd_period     AS month_num,
-                   SUM(invsavehd_docval) AS invoiced
+                   SUM(invsavehd_docval - invsavehd_docvat) AS invoiced
             FROM   dbo.invsaveheaders
             WHERE  invsavehd_H4 IN (:codes)
               AND  invsavehd_year = :year
             GROUP  BY invsavehd_H4, invsavehd_period
             """, params);
+    }
+
+    /** Find budget entry for a manager by invoice code (admin use — always populated). */
+    public Optional<Map<String, Object>> findBudgetByInvoiceCode(String invoiceCode, int year) {
+        List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
+            SELECT TOP 1 esoft_code, manager_name, invoice_code, department,
+                   department_code, el_name, team
+            FROM   dbo.budget_per_manager
+            WHERE  invoice_code = ? AND year = ?
+            """, invoiceCode, year);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
     /** All budget entries (for listing available managers). */

@@ -94,7 +94,6 @@ public class PerformanceRepository {
             WHERE tl.invservtimesheetln_employee_code = ?
               AND tl.invservtimesheetln_date >= ?
               AND tl.invservtimesheetln_date <  ?
-              AND e.invservemployee_inactive = 0
               AND w.invservwork_notChargeable = 0
               AND jc.sophorder_H3 != 'K'
             GROUP BY
@@ -127,7 +126,6 @@ public class PerformanceRepository {
             WHERE tl.invservtimesheetln_employee_code IN (:codes)
               AND tl.invservtimesheetln_date >= :start
               AND tl.invservtimesheetln_date <  :end
-              AND e.invservemployee_inactive = 0
               AND w.invservwork_notChargeable = 0
               AND jc.sophorder_H3 != 'K'
             GROUP BY

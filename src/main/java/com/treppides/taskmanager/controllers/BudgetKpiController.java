@@ -41,14 +41,14 @@ public class BudgetKpiController {
         return service.buildKpi(resolveEmail(auth), year);
     }
 
-    /** Admin-only: get budget KPI for any manager by eSoft code. */
-    @GetMapping("/{code}")
-    public BudgetKpiDTO byCode(
+    /** Admin-only: get budget KPI for any manager by invoice code. */
+    @GetMapping("/{invoiceCode}")
+    public BudgetKpiDTO byInvoiceCode(
             Authentication auth,
-            @PathVariable String code,
+            @PathVariable String invoiceCode,
             @RequestParam(required = false) Integer year) {
         requireAdmin(auth);
-        return service.buildKpiByCode(code, year);
+        return service.buildKpiByInvoiceCode(invoiceCode, year);
     }
 
     /** Admin-only: list all managers with budget data for dropdown. */
