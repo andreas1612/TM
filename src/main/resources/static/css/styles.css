@@ -386,7 +386,76 @@ select {
   color: var(--muted);
 }
 
+.sort-header {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.sort-header:hover,
+.sort-header.active {
+  color: var(--text);
+}
+
+.sort-header.active::after {
+  content: " ↑";
+}
+
+.sort-header.active[data-direction="desc"]::after {
+  content: " ↓";
+}
+
+.table-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.team-table-filters {
+  grid-template-columns: minmax(180px, 1.3fr) minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr);
+}
+
+.table-filters input,
+.table-filters select {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.table-filters input::placeholder {
+  color: var(--muted);
+}
+
 /* ---------- Forms ---------- */
+
+select {
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  color-scheme: light;
+}
+
+select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+html[data-theme="dark"] select {
+  color-scheme: dark;
+}
 
 .form {
   max-width: 700px;
@@ -420,6 +489,21 @@ select {
   margin-top: 24px;
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.archive-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--danger-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 400;
+}
+
+.archive-link:hover {
+  text-decoration: underline;
 }
 
 .inline-form input,
@@ -477,6 +561,11 @@ select {
   .main-content,
   .page {
     padding: 20px;
+  }
+
+  .table-filters,
+  .team-table-filters {
+    grid-template-columns: 1fr;
   }
 
   .header,
@@ -707,14 +796,14 @@ html[data-theme="dark"] .badge.done {
     padding: 6px 12px;
     border-radius: 20px;
     background: var(--accent-color);
-    color: white;
+    color: var(--text);
     font-size: 0.9rem;
 }
 
 .employee-tag button {
     border: none;
     background: transparent;
-    color: white;
+    color: var(--text);
     cursor: pointer;
     font-size: 1rem;
 }
@@ -828,8 +917,15 @@ html[data-theme="dark"] .badge.done {
     margin-top: 16px;
 }
 
-.inline-form input {
+.inline-form input,
+.inline-form select {
     flex: 1;
+    min-width: 0;
+}
+
+.status-select {
+    min-width: 130px;
+    padding: 7px 10px;
 }
 
 .icon-button {
@@ -852,6 +948,13 @@ html[data-theme="dark"] .badge.done {
     gap: 12px;
 }
 
+.comment-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}
+
 .comment-item {
     padding: 12px;
     border: 1px solid var(--border);
@@ -868,7 +971,10 @@ html[data-theme="dark"] .badge.done {
 }
 
 .comment-form textarea {
-    min-height: 120px;
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    max-height: 160px;
     resize: vertical;
 }
 

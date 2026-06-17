@@ -35,7 +35,7 @@ public class TaskReminderScheduler {
         log.info("Scheduler running...");
 
         List<Task> tasks =
-                taskRepository.findByDueDateIsNotNullAndStatusNotIn(
+                taskRepository.findByDueDateIsNotNullAndStatusNotInAndIsArchivedFalse(
                         List.of("COMPLETED", "CANCELLED")
                 );
 

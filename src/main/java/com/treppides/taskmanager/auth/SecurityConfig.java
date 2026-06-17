@@ -1,5 +1,6 @@
 package com.treppides.taskmanager.auth;
 
+import com.treppides.taskmanager.services.DatabaseOidcUserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,6 +19,12 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    private final DatabaseOidcUserService databaseOidcUserService;
+
+    public SecurityConfig(DatabaseOidcUserService databaseOidcUserService) {
+        this.databaseOidcUserService = databaseOidcUserService;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -28,6 +35,9 @@ public class SecurityConfig {
                 .requestMatchers("/", "/login.html", "/error", "/css/**", "/js/**", "/favicon.ico").permitAll()
                 .anyRequest().authenticated()
             )
+            .headers(headers -> headers
+                .xssProtection(xss -> xss.disable())
+            )
             .exceptionHandling(ex -> ex
                 .defaultAuthenticationEntryPointFor(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
@@ -37,6 +47,9 @@ public class SecurityConfig {
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/login.html")
                 .defaultSuccessUrl("/dashboard.html", true)
+                .userInfoEndpoint(userInfo -> userInfo
+                    .oidcUserService(databaseOidcUserService)
+                )
             )
             .addFilterAfter(new DomainFilter(), UsernamePasswordAuthenticationFilter.class);
 

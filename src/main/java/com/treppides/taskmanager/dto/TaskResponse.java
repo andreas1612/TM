@@ -16,6 +16,7 @@ public class TaskResponse {
     private LocalDate dueDate;
     private List<String> assignedTo;
     private String client;
+    private Boolean isArchived;
 
     public TaskResponse(Task task, List<TaskAssignment> assignments) {
         this.taskId = task.getTaskId();
@@ -25,6 +26,7 @@ public class TaskResponse {
         this.priority = task.getPriority();
         this.dueDate = task.getDueDate();
         this.client = task.getClient();
+        this.isArchived = task.getIsArchived();
 
         this.assignedTo = assignments.stream()
                 .map(a -> a.getAssignedTo().getEmail())
@@ -39,4 +41,5 @@ public class TaskResponse {
     public LocalDate getDueDate() { return dueDate; }
     public List<String> getAssignedTo() { return assignedTo; }
     public String getClient() { return client;}
+    public Boolean getIsArchived() { return isArchived; }
 }

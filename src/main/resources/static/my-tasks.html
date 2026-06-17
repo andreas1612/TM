@@ -48,16 +48,38 @@
                 </div>
             </div>
 
+            <div class="table-filters">
+                <input id="titleFilter" type="search" aria-label="Filter by title" placeholder="Title">
+
+                <select id="statusFilter" aria-label="Filter by status">
+                    <option value="">All statuses</option>
+                    <option value="TO_DO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+
+                <select id="priorityFilter" aria-label="Filter by priority">
+                    <option value="">All priorities</option>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                </select>
+
+                <input id="dueDateFilter" type="search" aria-label="Filter by due date" placeholder="Due date">
+            </div>
+
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Title</th>
-                        <th>Status</th>
-                        <th>Priority</th>
-                        <th>Due Date</th>
+                        <th><button type="button" class="sort-header" data-sort="title">Title</button></th>
+                        <th><button type="button" class="sort-header" data-sort="status">Status</button></th>
+                        <th><button type="button" class="sort-header" data-sort="priority">Priority</button></th>
+                        <th><button type="button" class="sort-header" data-sort="dueDate">Due Date</button></th>
                         <th>Details</th>
                         <th>Update Status</th>
-                    </td>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="myTasksTable"></tbody>

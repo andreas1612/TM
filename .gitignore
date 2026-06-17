@@ -34,3 +34,4 @@ build/
 
 ### Credentials — never commit ###
 src/main/resources/application.properties
+src/main/resources/application-local.properties

@@ -1,6 +1,10 @@
 document.addEventListener("DOMContentLoaded", loadMyTasks);
 
 let currentUser = null;
+let allMyTasks = [];
+let filtersBound = false;
+let sortColumn = null;
+let sortDirection = "asc";
 
 async function loadMyTasks() {
     try {
@@ -8,7 +12,9 @@ async function loadMyTasks() {
         document.getElementById("userName").innerText = currentUser.name;
 
         const tasks = await getMyTasks(currentUser.email);
-        renderMyTasks(tasks);
+        allMyTasks = tasks || [];
+        bindTaskFilters();
+        renderMyTasks();
     } catch (error) {
         console.error(error);
         document.querySelector(".main-content").innerHTML =
@@ -16,14 +22,42 @@ async function loadMyTasks() {
     }
 }
 
-function renderMyTasks(tasks) {
+function bindTaskFilters() {
+    if (filtersBound) {
+        return;
+    }
+
+    [
+        "titleFilter",
+        "statusFilter",
+        "priorityFilter",
+        "dueDateFilter"
+    ].forEach(filterId => {
+        document
+            .getElementById(filterId)
+            .addEventListener("input", renderMyTasks);
+    });
+
+    document.querySelectorAll(".sort-header").forEach(header => {
+        header.addEventListener("click", () => {
+            handleSort(header.dataset.sort);
+        });
+    });
+
+    filtersBound = true;
+}
+
+function renderMyTasks() {
     const table = document.getElementById("myTasksTable");
     table.innerHTML = "";
+
+    const tasks = getSortedTasks(getFilteredTasks());
+    updateSortHeaders();
 
     if (!tasks || tasks.length === 0) {
         table.innerHTML = `
             <tr>
-                <td colspan="6" class="muted">
+                <td colspan="7" class="muted">
                     No tasks assigned to you.
                 </td>
             </tr>
@@ -65,6 +99,14 @@ function renderMyTasks(tasks) {
                     <option value="CANCELLED" ${task.status === "CANCELLED" ? "selected" : ""}>Cancelled</option>
                 </select>
             </td>
+            <td>
+                <button
+                    type="button"
+                    class="archive-link"
+                    onclick="handleArchiveTask(${task.taskId})">
+                    Archive
+                </button>
+            </td>
         `;
 
         table.appendChild(row);
@@ -81,9 +123,115 @@ function renderMyTasks(tasks) {
     });
 }
 
+function handleSort(column) {
+    if (sortColumn === column) {
+        sortDirection =
+            sortDirection === "asc" ? "desc" : "asc";
+    } else {
+        sortColumn = column;
+        sortDirection = "asc";
+    }
+
+    renderMyTasks();
+}
+
+function getSortedTasks(tasks) {
+    if (!sortColumn) {
+        return tasks;
+    }
+
+    return [...tasks].sort((firstTask, secondTask) => {
+        const firstValue =
+            getSortValue(firstTask, sortColumn);
+
+        const secondValue =
+            getSortValue(secondTask, sortColumn);
+
+        const comparison =
+            firstValue.localeCompare(secondValue, undefined, {
+                numeric: true,
+                sensitivity: "base"
+            });
+
+        return sortDirection === "asc"
+            ? comparison
+            : comparison * -1;
+    });
+}
+
+function getSortValue(task, column) {
+    if (column === "title") {
+        return task.title || "";
+    }
+
+    if (column === "status") {
+        return formatStatus(task.status);
+    }
+
+    if (column === "priority") {
+        return task.priority || "";
+    }
+
+    if (column === "dueDate") {
+        return task.dueDate || "";
+    }
+
+    return "";
+}
+
+function updateSortHeaders() {
+    document.querySelectorAll(".sort-header").forEach(header => {
+        const isActive =
+            header.dataset.sort === sortColumn;
+
+        header.classList.toggle("active", isActive);
+        header.dataset.direction =
+            isActive ? sortDirection : "";
+    });
+}
+
+function getFilteredTasks() {
+    const titleFilter =
+        document.getElementById("titleFilter").value.trim().toLowerCase();
+
+    const statusFilter =
+        document.getElementById("statusFilter").value;
+
+    const priorityFilter =
+        document.getElementById("priorityFilter").value;
+
+    const dueDateFilter =
+        document.getElementById("dueDateFilter").value.trim().toLowerCase();
+
+    return allMyTasks.filter(task => {
+        const title =
+            `${task.title || ""} ${task.description || ""}`.toLowerCase();
+
+        const dueDate =
+            (task.dueDate || "No due date").toLowerCase();
+
+        return (!titleFilter || title.includes(titleFilter))
+            && (!statusFilter || task.status === statusFilter)
+            && (!priorityFilter || task.priority === priorityFilter)
+            && (!dueDateFilter || dueDate.includes(dueDateFilter));
+    });
+}
+
 function openTask(taskId) {
     window.location.href =
         `/task-details.html?id=${taskId}`;
+}
+
+async function handleArchiveTask(taskId) {
+    const confirmed =
+        window.confirm("Archive this task? It will be hidden from task lists.");
+
+    if (!confirmed) {
+        return;
+    }
+
+    await archiveTask(taskId, currentUser.email);
+    await loadMyTasks();
 }
 
 function formatStatus(status) {

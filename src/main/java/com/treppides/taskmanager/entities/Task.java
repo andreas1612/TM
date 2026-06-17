@@ -53,6 +53,9 @@ public class Task {
     @Column(name = "Client")
     private String client;
 
+    @Column(name = "IsArchived", nullable = false)
+    private Boolean isArchived = false;
+
     @JsonIgnore
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskAssignment> assignments = new ArrayList<>();
@@ -124,4 +127,11 @@ public class Task {
 
     public String getClient() { return client;}
     public void setClient(String client) { this.client = client;}
+
+    public Boolean getIsArchived() { return isArchived; }
+    public void setIsArchived(Boolean archived) { isArchived = archived; }
+
+    public boolean isArchived() {
+        return Boolean.TRUE.equals(isArchived);
+    }
 }

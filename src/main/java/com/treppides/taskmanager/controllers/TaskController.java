@@ -175,6 +175,15 @@ public class TaskController {
         );
     }
 
+    @PutMapping("/{taskId}/archive")
+    public Task archiveTask(Authentication auth,
+                            @PathVariable Integer taskId) {
+        String currentUser = resolveEmail(auth);
+        Task task = taskService.getTaskById(taskId);
+        requireTaskAccess(auth, task);
+        return taskService.archiveTask(taskId, currentUser);
+    }
+
     @GetMapping("/{taskId}/dependencies")
     public List<TaskDependencyResponse> getTaskDependencies(Authentication auth,
                                                              @PathVariable Integer taskId) {
