@@ -25,15 +25,24 @@ public class PerformanceService {
         this.repo = repo;
     }
 
+    public PerformanceCardDTO buildCardByCode(String esoftCode, String period, Integer year, Integer month) {
+        Map<String, Object> target = repo.findTargetByCode(esoftCode)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "NON_CHARGEABLE_ROLE"));
+        return buildCardFromTarget(target, period, year, month);
+    }
+
     public PerformanceCardDTO buildCard(String email, String period, Integer year, Integer month) {
-        // Resolve email → eSoft code → target data
         String resolvedCode = repo.findCodeByEmail(email)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
         Map<String, Object> target = repo.findTargetByCode(resolvedCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
+        return buildCardFromTarget(target, period, year, month);
+    }
 
+    private PerformanceCardDTO buildCardFromTarget(Map<String, Object> target, String period, Integer year, Integer month) {
         PeriodInfo pi = periodRange(period, year, month);
 
         String esoftCode    = (String) target.get("esoft_code");
@@ -103,15 +112,23 @@ public class PerformanceService {
             .build();
     }
 
+    public PerformanceCardDTO buildTeamCardByCode(String esoftCode, String period, Integer year, Integer month) {
+        PerformanceCardDTO managerCard = buildCardByCode(esoftCode, period, year, month);
+        return buildTeamFromManagerCard(managerCard, esoftCode, period, year, month);
+    }
+
     public PerformanceCardDTO buildTeamCard(String azureEmail, String period, Integer year, Integer month) {
         PerformanceCardDTO managerCard = buildCard(azureEmail, period, year, month);
+        String managerCode = repo.findCodeByEmail(azureEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
+        return buildTeamFromManagerCard(managerCard, managerCode, period, year, month);
+    }
 
+    private PerformanceCardDTO buildTeamFromManagerCard(PerformanceCardDTO managerCard, String managerCode, String period, Integer year, Integer month) {
         if (!managerCard.isManager()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a manager");
         }
 
-        String managerCode = repo.findCodeByEmail(azureEmail)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
         Map<String, Object> target = repo.findTargetByCode(managerCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
         String managerName = (String) target.get("employee_name");

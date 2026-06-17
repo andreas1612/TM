@@ -32,6 +32,17 @@ public class BudgetKpiService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "Employee not found in eSoft"));
 
+        return buildKpiForCode(esoftCode, yr);
+    }
+
+    /** Build KPI directly from eSoft code (admin use). */
+    public BudgetKpiDTO buildKpiByCode(String esoftCode, Integer year) {
+        int yr = year != null ? year : LocalDate.now().getYear();
+        return buildKpiForCode(esoftCode, yr);
+    }
+
+    private BudgetKpiDTO buildKpiForCode(String esoftCode, int yr) {
+
         // Find budget entry
         Map<String, Object> budgetInfo = budgetRepo.findBudgetByEsoftCode(esoftCode, yr)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,

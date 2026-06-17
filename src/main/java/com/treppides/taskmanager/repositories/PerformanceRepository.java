@@ -1,6 +1,10 @@
 package com.treppides.taskmanager.repositories;
 
+import com.treppides.taskmanager.services.InMemoryTargetsProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -15,16 +19,21 @@ import java.util.Optional;
 @Repository
 public class PerformanceRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(PerformanceRepository.class);
+
     private final JdbcTemplate internalToolsJdbc;
     private final JdbcTemplate esoftJdbc;
     private final NamedParameterJdbcTemplate esoftNamedJdbc;
+    private final InMemoryTargetsProvider fallback;
 
     public PerformanceRepository(
             JdbcTemplate jdbcTemplate,
-            @Qualifier("esoftJdbcTemplate") JdbcTemplate esoftJdbcTemplate) {
+            @Qualifier("esoftJdbcTemplate") JdbcTemplate esoftJdbcTemplate,
+            InMemoryTargetsProvider fallback) {
         this.internalToolsJdbc = jdbcTemplate;
         this.esoftJdbc = esoftJdbcTemplate;
         this.esoftNamedJdbc = new NamedParameterJdbcTemplate(esoftJdbcTemplate.getDataSource());
+        this.fallback = fallback;
     }
 
     /**
@@ -44,13 +53,18 @@ public class PerformanceRepository {
     }
 
     public Optional<Map<String, Object>> findTargetByCode(String esoftCode) {
-        List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
-            SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
-                   location, manager_name, azure_email
-            FROM   dbo.performance_targets
-            WHERE  esoft_code = ?
-            """, esoftCode);
-        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+        try {
+            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
+                SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
+                       location, manager_name, azure_email
+                FROM   dbo.performance_targets
+                WHERE  esoft_code = ?
+                """, esoftCode);
+            if (!rows.isEmpty()) return Optional.of(rows.get(0));
+        } catch (DataAccessException e) {
+            log.debug("performance_targets table unavailable, using in-memory fallback: {}", e.getMessage());
+        }
+        return fallback.findByCode(esoftCode);
     }
 
     public Optional<Map<String, Object>> findActualHours(String esoftCode, LocalDate start, LocalDate end) {
@@ -123,13 +137,19 @@ public class PerformanceRepository {
     }
 
     public List<Map<String, Object>> findDirectReports(String managerName) {
-        return internalToolsJdbc.queryForList("""
-            SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
-                   location, azure_email
-            FROM   dbo.performance_targets
-            WHERE  manager_name = ?
-            ORDER  BY employee_name
-            """, managerName);
+        try {
+            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
+                SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
+                       location, azure_email
+                FROM   dbo.performance_targets
+                WHERE  manager_name = ?
+                ORDER  BY employee_name
+                """, managerName);
+            if (!rows.isEmpty()) return rows;
+        } catch (DataAccessException e) {
+            log.debug("performance_targets table unavailable, using in-memory fallback");
+        }
+        return fallback.findByManager(managerName);
     }
 
     public List<Map<String, Object>> findHoursByCompany(String esoftCode, LocalDate start, LocalDate end) {
@@ -153,10 +173,16 @@ public class PerformanceRepository {
     }
 
     public List<Map<String, Object>> findAllEmployees() {
-        return internalToolsJdbc.queryForList("""
-            SELECT esoft_code, employee_name
-            FROM   dbo.performance_targets
-            ORDER  BY employee_name
-            """);
+        try {
+            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
+                SELECT esoft_code, employee_name
+                FROM   dbo.performance_targets
+                ORDER  BY employee_name
+                """);
+            if (!rows.isEmpty()) return rows;
+        } catch (DataAccessException e) {
+            log.debug("performance_targets table unavailable, using in-memory fallback");
+        }
+        return fallback.findAll();
     }
 }
