@@ -32,5 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 
-### Local application secrets ###
+### Credentials — never commit ###
+src/main/resources/application.properties
 src/main/resources/application-local.properties

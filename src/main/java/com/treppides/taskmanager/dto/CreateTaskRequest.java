@@ -1,19 +1,33 @@
 package com.treppides.taskmanager.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 import java.util.List;
 
 public class CreateTaskRequest {
 
+    @NotBlank @Size(max = 500)
     private String title;
+
+    @Size(max = 5000)
     private String description;
+
     private String createdBy;
+
+    @Size(max = 50)
     private String status;
+
+    @Size(max = 50)
     private String priority;
+
     private LocalDate startDate;
     private LocalDate dueDate;
     private Integer parentTaskId;
     private List<String> assignedTo;
+
+    @Size(max = 200)
     private String client;
 
     public String getTitle() { return title; }

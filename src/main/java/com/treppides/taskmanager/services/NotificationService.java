@@ -2,12 +2,16 @@ package com.treppides.taskmanager.services;
 
 import com.treppides.taskmanager.entities.Employee;
 import com.treppides.taskmanager.entities.Task;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     private final JavaMailSender mailSender;
 
@@ -20,8 +24,9 @@ public class NotificationService {
                 new SimpleMailMessage();
 
         message.setTo(employee.getEmail());
+        String safeTitle = task.getTitle().replaceAll("[\\r\\n]", " ");
         message.setSubject(
-                "Task Manager - New Task Assigned: " + task.getTitle()
+                "Task Manager - New Task Assigned: " + safeTitle
         );
 
         message.setText(
@@ -53,14 +58,13 @@ public class NotificationService {
                 )
         );
 
-        System.out.println("Trying to send notification to: " + employee.getEmail());
+        log.info("Sending notification to: {}", employee.getEmail());
         try {
                 message.setFrom("notifications@treppides.com");
                 mailSender.send(message);
-                System.out.println("Notification email sent to: " + employee.getEmail());
+                log.info("Notification email sent to: {}", employee.getEmail());
         } catch (Exception e) {
-                System.out.println("Notification email failed for: " + employee.getEmail());
-                e.printStackTrace();
+                log.error("Notification email failed for: {}", employee.getEmail(), e);
         }
     }
 
@@ -70,9 +74,10 @@ public class NotificationService {
         message.setTo(employee.getEmail());
         message.setFrom("notifications@treppides.com");
 
+       String safeTitle = task.getTitle().replaceAll("[\\r\\n]", " ");
        message.setSubject(
                 "Task Manager - Upcoming Task Deadline - "
-                        + task.getTitle() );
+                        + safeTitle );
 
         message.setText(
                 """
@@ -101,14 +106,13 @@ public class NotificationService {
                 )
         );
 
-        System.out.println("Trying to send reminder to: " + employee.getEmail());
+        log.info("Sending reminder to: {}", employee.getEmail());
 
         try {
                 mailSender.send(message);
-                System.out.println("Reminder email sent to: " + employee.getEmail());
+                log.info("Reminder email sent to: {}", employee.getEmail());
         } catch (Exception e) {
-                System.out.println("Reminder email failed for: " + employee.getEmail());
-                e.printStackTrace();
+                log.error("Reminder email failed for: {}", employee.getEmail(), e);
         }
         }
 }

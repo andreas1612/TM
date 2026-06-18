@@ -1,8 +1,13 @@
 package com.treppides.taskmanager.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class AddCommentRequest {
 
+    @NotBlank @Size(max = 5000)
     private String commentText;
+
     private String createdBy;
 
     public String getCommentText() { return commentText; }

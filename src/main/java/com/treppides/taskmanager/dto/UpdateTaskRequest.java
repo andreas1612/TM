@@ -1,16 +1,28 @@
 package com.treppides.taskmanager.dto;
 
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 import java.util.List;
 
 public class UpdateTaskRequest {
 
+    @Size(max = 500)
     private String title;
+
+    @Size(max = 5000)
     private String description;
+
+    @Size(max = 50)
     private String status;
+
+    @Size(max = 50)
     private String priority;
+
     private LocalDate dueDate;
     private List<String> assignedTo;
+
+    @Size(max = 200)
     private String client;
 
     public String getTitle() { return title; }
