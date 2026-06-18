@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
@@ -86,9 +87,12 @@ public class AuthController {
 
     @GetMapping("/api/graph-test")
     public Map<String, Object> graphTest(@AuthenticationPrincipal OidcUser user,
-                                         Authentication authentication) {
+                                         Authentication authentication,
+                                         @RequestParam(required = false) String email) {
         Map<String, Object> result = new HashMap<>();
-        String email = user.getPreferredUsername().toLowerCase();
+        if (email == null || email.isBlank()) {
+            email = user.getPreferredUsername().toLowerCase();
+        }
         result.put("email", email);
 
         OAuth2AuthorizedClient client = null;
