@@ -26,7 +26,7 @@ spring.mail.properties.mail.smtp.writetimeout=10000
 # --- Microsoft Entra ID / Azure AD OAuth2 ---
 spring.security.oauth2.client.registration.azure.client-id=CHANGE_ME
 spring.security.oauth2.client.registration.azure.client-secret=CHANGE_ME
-spring.security.oauth2.client.registration.azure.scope=openid,profile,email
+spring.security.oauth2.client.registration.azure.scope=openid,profile,email,https://graph.microsoft.com/User.Read.All
 spring.security.oauth2.client.registration.azure.authorization-grant-type=authorization_code
 spring.security.oauth2.client.registration.azure.redirect-uri={baseUrl}/login/oauth2/code/{registrationId}
 spring.security.oauth2.client.registration.azure.client-name=Microsoft
