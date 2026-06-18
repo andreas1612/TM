@@ -61,6 +61,17 @@ public class BudgetKpiController {
         return budgetRepo.findAllBudgetManagers(yr);
     }
 
+    /** Admin-only: individual invoice lines for a manager (debug drill-down). */
+    @GetMapping("/invoice-details/{invoiceCode}")
+    public List<Map<String, Object>> invoiceDetails(
+            Authentication auth,
+            @PathVariable String invoiceCode,
+            @RequestParam(required = false) Integer year) {
+        requireAdmin(auth);
+        int yr = year != null ? year : LocalDate.now().getYear();
+        return budgetRepo.findInvoiceDetails(invoiceCode, yr);
+    }
+
     /** Admin-only: list fee adjustments for a manager. */
     @GetMapping("/fee-adjustments/{invoiceCode}")
     public List<Map<String, Object>> feeAdjustments(

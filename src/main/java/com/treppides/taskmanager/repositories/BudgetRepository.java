@@ -48,18 +48,35 @@ public class BudgetRepository {
             """, invoiceCode, year);
     }
 
-    /** Actual invoiced amounts from eSoft, grouped by month. */
+    /**
+     * PBI's computed Value formula (Power Query DAX):
+     *   sign = if(doctype='SRE', -1, 1)
+     *   base = (docval - docvat) * currency_rate
+     *   EK001 + 'Finanz-Audit Limited'      → base / 0.7
+     *   EK001 + 'TREPPIDES ADVISERS LIMITED' → base / 0.3
+     *   else                                 → base
+     *   Value = sign * above
+     */
+    private static final String PBI_VALUE = """
+            CASE WHEN invsavehd_doctype = 'SRE' THEN -1 ELSE 1 END
+            * CASE
+                WHEN invsavehd_H4 = 'EK001' AND invsavehd_account_name = 'Finanz-Audit Limited'
+                  THEN (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate / 0.7
+                WHEN invsavehd_H4 = 'EK001' AND invsavehd_account_name = 'TREPPIDES ADVISERS LIMITED'
+                  THEN (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate / 0.3
+                ELSE (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate
+              END""";
+
+    /** Actual invoiced amounts from eSoft, grouped by month — matches PBI Value formula. */
     public List<Map<String, Object>> findMonthlyInvoiced(String invoiceCode, int year) {
         if (invoiceCode == null) return Collections.emptyList();
-        return esoftJdbc.queryForList("""
-            SELECT invsavehd_period  AS month_num,
-                   SUM((invsavehd_docval - invsavehd_docvat) * invsavehd_sign * -1) AS invoiced
-            FROM   dbo.invsaveheaders
-            WHERE  invsavehd_H4 = ?
-              AND  invsavehd_year = ?
-            GROUP  BY invsavehd_period
-            ORDER  BY invsavehd_period
-            """, invoiceCode, year);
+        return esoftJdbc.queryForList(
+            "SELECT invsavehd_period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
+            + " FROM dbo.invsaveheaders"
+            + " WHERE invsavehd_H4 = ? AND invsavehd_year = ? AND invsavehd_status != 'C'"
+            + " GROUP BY invsavehd_period"
+            + " ORDER BY invsavehd_period",
+            invoiceCode, year);
     }
 
     /** All managers in the same EL group for a given year. */
@@ -86,15 +103,12 @@ public class BudgetRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("codes", invoiceCodes)
             .addValue("year", year);
-        return esoftNamedJdbc.queryForList("""
-            SELECT invsavehd_H4        AS invoice_code,
-                   invsavehd_period     AS month_num,
-                   SUM((invsavehd_docval - invsavehd_docvat) * invsavehd_sign * -1) AS invoiced
-            FROM   dbo.invsaveheaders
-            WHERE  invsavehd_H4 IN (:codes)
-              AND  invsavehd_year = :year
-            GROUP  BY invsavehd_H4, invsavehd_period
-            """, params);
+        return esoftNamedJdbc.queryForList(
+            "SELECT invsavehd_H4 AS invoice_code, invsavehd_period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
+            + " FROM dbo.invsaveheaders"
+            + " WHERE invsavehd_H4 IN (:codes) AND invsavehd_year = :year AND invsavehd_status != 'C'"
+            + " GROUP BY invsavehd_H4, invsavehd_period",
+            params);
     }
 
     /** Find budget entry for a manager by invoice code (admin use — always populated). */
@@ -106,6 +120,28 @@ public class BudgetRepository {
             WHERE  invoice_code = ? AND year = ?
             """, invoiceCode, year);
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    /** Individual invoice lines for debugging — shows every document with all relevant fields. */
+    public List<Map<String, Object>> findInvoiceDetails(String invoiceCode, int year) {
+        if (invoiceCode == null) return Collections.emptyList();
+        return esoftJdbc.queryForList(
+            "SELECT invsavehd_docno AS invoice_no,"
+            + " invsavehd_period AS month_num,"
+            + " invsavehd_docdate AS doc_date,"
+            + " invsavehd_account_name AS client,"
+            + " invsavehd_docval AS gross,"
+            + " invsavehd_docvat AS vat,"
+            + " invsavehd_docval - invsavehd_docvat AS net,"
+            + " " + PBI_VALUE + " AS pbi_value,"
+            + " invsavehd_doctype AS doc_type,"
+            + " invsavehd_sign AS sign,"
+            + " invsavehd_currency_rate AS currency_rate,"
+            + " invsavehd_details AS description"
+            + " FROM dbo.invsaveheaders"
+            + " WHERE invsavehd_H4 = ? AND invsavehd_year = ? AND invsavehd_status != 'C'"
+            + " ORDER BY invsavehd_period, invsavehd_docdate, invsavehd_docno",
+            invoiceCode, year);
     }
 
     /** All budget entries (for listing available managers). */
