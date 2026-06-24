@@ -34,7 +34,6 @@ public class DevSecurityConfig {
     @Order(1)
     public SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher(request -> request.getHeader("X-Dev-User-Code") != null)
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.disable())
             .addFilterBefore(new DevAuthFilter(jdbcTemplate), UsernamePasswordAuthenticationFilter.class)
@@ -55,9 +54,12 @@ public class DevSecurityConfig {
                                         HttpServletResponse response,
                                         FilterChain filterChain) throws ServletException, IOException {
             String esoftCode = request.getHeader("X-Dev-User-Code");
-            if (esoftCode != null && !esoftCode.isBlank()) {
+            if (esoftCode == null || esoftCode.isBlank()) {
+                esoftCode = "0437"; // default dev user for plain browser page loads (no header)
+            }
+            {
                 List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "SELECT azure_email, employee_name FROM dbo.performance_targets WHERE esoft_code = ?",
+                    "SELECT email AS azure_email, employee_name FROM dbo.esoft_employees WHERE employee_code = ?",
                     esoftCode
                 );
                 if (!rows.isEmpty()) {

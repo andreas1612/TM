@@ -1,5 +1,6 @@
 package com.treppides.taskmanager.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +29,10 @@ public class PerformanceCardDTO {
     private double chargeabilityPct;
     private double targetPct;
     private String badge;
+    // Frontend reads card.isManager to decide whether to load the team view;
+    // without this, Lombok's isManager() getter serializes as "manager" and the
+    // team view silently never renders.
+    @JsonProperty("isManager")
     private boolean isManager;
 
     private List<PerformanceCardDTO> directReports;

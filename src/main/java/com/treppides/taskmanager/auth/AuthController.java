@@ -5,7 +5,9 @@ import com.treppides.taskmanager.repositories.PerformanceRepository;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -42,9 +44,21 @@ public class AuthController {
     }
 
     @GetMapping("/api/me")
-    public Map<String, Object> me(@AuthenticationPrincipal OidcUser user) {
-        String email = user.getPreferredUsername().toLowerCase();
-        String name = user.getFullName();
+    public Map<String, Object> me(Authentication auth) {
+        if (auth == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        // Works for both Azure (OidcUser) and the dev profile (X-Dev-User-Code login).
+        String email;
+        String name;
+        if (auth.getPrincipal() instanceof OidcUser oidc) {
+            email = oidc.getPreferredUsername().toLowerCase();
+            name = oidc.getFullName();
+        } else {
+            email = auth.getName().toLowerCase();
+            Object details = auth.getDetails();
+            name = details != null ? details.toString() : "";
+        }
         boolean isAdmin = adminService.isAdmin(email);
 
         Map<String, Object> result = new HashMap<>();
