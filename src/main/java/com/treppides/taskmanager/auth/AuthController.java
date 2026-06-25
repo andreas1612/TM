@@ -28,16 +28,19 @@ import java.util.Optional;
 public class AuthController {
 
     private final AdminService adminService;
+    private final BoardService boardService;
     private final PerformanceRepository perfRepo;
     private final BudgetRepository budgetRepo;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final RestTemplate restTemplate = new RestTemplate();
 
     public AuthController(AdminService adminService,
+                          BoardService boardService,
                           PerformanceRepository perfRepo,
                           BudgetRepository budgetRepo,
                           OAuth2AuthorizedClientService authorizedClientService) {
         this.adminService = adminService;
+        this.boardService = boardService;
         this.perfRepo = perfRepo;
         this.budgetRepo = budgetRepo;
         this.authorizedClientService = authorizedClientService;
@@ -65,6 +68,9 @@ public class AuthController {
         result.put("email", email);
         result.put("name", name != null ? name : "");
         result.put("isAdmin", isAdmin);
+        // Financials gate: admins or configured board members (app.board.emails). Matches
+        // AccessScopeResolver (unrestricted = admin OR board); the hub sidebar gates on this.
+        result.put("isBoardMember", isAdmin || boardService.isBoard(email));
 
         // Resolve eSoft code
         Optional<String> codeOpt = perfRepo.findCodeByEmail(email);
