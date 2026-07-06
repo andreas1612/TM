@@ -29,6 +29,7 @@ public class AuthController {
 
     private final AdminService adminService;
     private final BoardService boardService;
+    private final RoleService roleService;
     private final PerformanceRepository perfRepo;
     private final BudgetRepository budgetRepo;
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -36,11 +37,13 @@ public class AuthController {
 
     public AuthController(AdminService adminService,
                           BoardService boardService,
+                          RoleService roleService,
                           PerformanceRepository perfRepo,
                           BudgetRepository budgetRepo,
                           OAuth2AuthorizedClientService authorizedClientService) {
         this.adminService = adminService;
         this.boardService = boardService;
+        this.roleService = roleService;
         this.perfRepo = perfRepo;
         this.budgetRepo = budgetRepo;
         this.authorizedClientService = authorizedClientService;
@@ -71,6 +74,12 @@ public class AuthController {
         // Financials gate: admins or configured board members (app.board.emails). Matches
         // AccessScopeResolver (unrestricted = admin OR board); the hub sidebar gates on this.
         result.put("isBoardMember", isAdmin || boardService.isBoard(email));
+
+        // Hub access tier + visible feature set (single source of truth: RoleService).
+        // FULL = everything incl. hidden/WIP; STANDARD = base hub; NONE = restricted.
+        RoleService.Tier tier = roleService.tierOf(email);
+        result.put("tier", tier.name());
+        result.put("features", roleService.features(tier));
 
         // Resolve eSoft code
         Optional<String> codeOpt = perfRepo.findCodeByEmail(email);
