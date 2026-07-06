@@ -35,6 +35,9 @@ public class AuthController {
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @org.springframework.beans.factory.annotation.Value("${app.simulator.enabled:false}")
+    private boolean simulatorEnabled;
+
     public AuthController(AdminService adminService,
                           BoardService boardService,
                           RoleService roleService,
@@ -80,6 +83,8 @@ public class AuthController {
         RoleService.Tier tier = roleService.tierOf(email);
         result.put("tier", tier.name());
         result.put("features", roleService.features(tier));
+        // Test-env only: tells the hub to show the "View as" switcher. False/absent in prod.
+        result.put("simulator", simulatorEnabled);
 
         // Resolve eSoft code
         Optional<String> codeOpt = perfRepo.findCodeByEmail(email);

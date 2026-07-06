@@ -53,7 +53,14 @@ public class DevSecurityConfig {
         protected void doFilterInternal(HttpServletRequest request,
                                         HttpServletResponse response,
                                         FilterChain filterChain) throws ServletException, IOException {
-            String esoftCode = request.getHeader("X-Dev-User-Code");
+            // Simulator: a session identity (set via /api/sim/login) wins, so a "view as"
+            // persists across the SPA's cookie-based requests. Else header, else default.
+            String esoftCode = null;
+            var session = request.getSession(false);
+            if (session != null && session.getAttribute("SIM_USER_CODE") instanceof String s && !s.isBlank()) {
+                esoftCode = s;
+            }
+            if (esoftCode == null || esoftCode.isBlank()) esoftCode = request.getHeader("X-Dev-User-Code");
             if (esoftCode == null || esoftCode.isBlank()) {
                 esoftCode = "0437"; // default dev user for plain browser page loads (no header)
             }
