@@ -74,9 +74,9 @@ public class AuthController {
         result.put("email", email);
         result.put("name", name != null ? name : "");
         result.put("isAdmin", isAdmin);
-        // Financials gate: admins or configured board members (app.board.emails). Matches
-        // AccessScopeResolver (unrestricted = admin OR board); the hub sidebar gates on this.
-        result.put("isBoardMember", isAdmin || boardService.isBoard(email));
+        // Financials gate: FULL-tier or configured board members (app.board.emails). Matches
+        // AccessScopeResolver (unrestricted = FULL OR board). STANDARD admins do NOT qualify.
+        result.put("isBoardMember", roleService.isFull(email) || boardService.isBoard(email));
 
         // Hub access tier + visible feature set (single source of truth: RoleService).
         // FULL = everything incl. hidden/WIP; STANDARD = base hub; NONE = restricted.

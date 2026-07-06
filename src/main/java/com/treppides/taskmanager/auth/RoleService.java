@@ -28,8 +28,9 @@ public class RoleService {
         "msourmeli@treppides.com",
         "aparaskeva@treppides.com",
         "apieri@treppides.com",
-        "dkatsiolas@treppides.com",
-        "lpampaka@treppides.com"
+        "dkatsiolas@treppides.com"
+        // TEMP (2026-07-06): lpampaka@treppides.com held at STANDARD to test the
+        // FULL-only backend gate. Restore to FULL when testing is done.
     );
 
     // Feature keys align with the hub sidebar sections.
@@ -51,6 +52,15 @@ public class RoleService {
         if (FULL_EMAILS.contains(e)) return Tier.FULL;
         if (adminService.isAdmin(e)) return Tier.STANDARD;
         return Tier.NONE;
+    }
+
+    /**
+     * True only for FULL-tier users. This is the single gate for privileged data
+     * (Financials, all-employee Performance/Budget KPI). STANDARD admins fail it —
+     * being in app.admin.emails makes you an admin, NOT necessarily FULL.
+     */
+    public boolean isFull(String email) {
+        return tierOf(email) == Tier.FULL;
     }
 
     /** The set of hub sections a tier may see. */

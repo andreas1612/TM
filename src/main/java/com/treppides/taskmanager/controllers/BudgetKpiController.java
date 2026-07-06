@@ -3,7 +3,7 @@ package com.treppides.taskmanager.controllers;
 import com.treppides.taskmanager.dto.BudgetKpiDTO;
 import com.treppides.taskmanager.repositories.BudgetRepository;
 import com.treppides.taskmanager.repositories.FeeAdjustmentRepository;
-import com.treppides.taskmanager.auth.AdminService;
+import com.treppides.taskmanager.auth.RoleService;
 import com.treppides.taskmanager.services.BudgetKpiService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -20,16 +20,16 @@ import java.util.Map;
 public class BudgetKpiController {
 
     private final BudgetKpiService service;
-    private final AdminService adminService;
+    private final RoleService roleService;
     private final BudgetRepository budgetRepo;
     private final FeeAdjustmentRepository feeRepo;
 
     public BudgetKpiController(BudgetKpiService service,
-                                AdminService adminService,
+                                RoleService roleService,
                                 BudgetRepository budgetRepo,
                                 FeeAdjustmentRepository feeRepo) {
         this.service = service;
-        this.adminService = adminService;
+        this.roleService = roleService;
         this.budgetRepo = budgetRepo;
         this.feeRepo = feeRepo;
     }
@@ -127,8 +127,8 @@ public class BudgetKpiController {
 
     private void requireAdmin(Authentication auth) {
         String email = resolveEmail(auth);
-        if (!adminService.isAdmin(email)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        if (!roleService.isFull(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FULL-tier access required");
         }
     }
 

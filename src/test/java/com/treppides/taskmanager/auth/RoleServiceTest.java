@@ -22,14 +22,25 @@ class RoleServiceTest {
     @Test
     void fullTierEmailsResolveFull() {
         assertEquals(RoleService.Tier.FULL, svc().tierOf("apieri@treppides.com"));
-        assertEquals(RoleService.Tier.FULL, svc().tierOf("gpanayiotou@treppides.com"));
-        assertEquals(RoleService.Tier.FULL, svc().tierOf("LPAMPAKA@treppides.com")); // case-insensitive
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("GPANAYIOTOU@treppides.com")); // case-insensitive
     }
 
     @Test
     void standardAdminsResolveStandard() {
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("stavrostimotheou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("kmagou@treppides.com"));
+        // TEMP (2026-07-06): lpampaka held at STANDARD to test the FULL-only backend gate.
+        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("lpampaka@treppides.com"));
+    }
+
+    @Test
+    void isFullGatesFullOnly() {
+        RoleService s = svc();
+        assertTrue(s.isFull("apieri@treppides.com"));       // FULL
+        assertFalse(s.isFull("kmagou@treppides.com"));      // STANDARD admin — walled off
+        assertFalse(s.isFull("lpampaka@treppides.com"));    // TEMP STANDARD
+        assertFalse(s.isFull("someone@treppides.com"));     // NONE
+        assertFalse(s.isFull(null));
     }
 
     @Test

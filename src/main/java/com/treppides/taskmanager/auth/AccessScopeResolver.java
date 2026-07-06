@@ -16,10 +16,10 @@ import java.util.Set;
  *   - esoft_employees  : email -> live eSoft code (roster is always current)
  *   - reporting_lines  : manager_code -> report_code (hand-maintained hierarchy)
  *   - report_grants    : principal -> grant (data-driven; DEPARTMENT/EL/ALL)
- * Plus the config allow-lists: {@link AdminService} and {@link BoardService}.
+ * Plus tier + board membership: {@link RoleService} (FULL) and {@link BoardService}.
  *
  * Resolution:
- *   admin or board               -> ALL (unrestricted)
+ *   FULL tier or board           -> ALL (unrestricted; STANDARD admins do NOT qualify)
  *   explicit grant rows          -> add DEPARTMENT / EL keys, or ALL
  *   has rows in reporting_lines  -> TEAM (self + direct reports)
  *   otherwise                    -> SELF (own code only)
@@ -28,14 +28,14 @@ import java.util.Set;
 public class AccessScopeResolver {
 
     private final JdbcTemplate jdbc;          // primary datasource = InternalTools (datamart)
-    private final AdminService adminService;
+    private final RoleService roleService;
     private final BoardService boardService;
 
     public AccessScopeResolver(JdbcTemplate jdbcTemplate,
-                               AdminService adminService,
+                               RoleService roleService,
                                BoardService boardService) {
         this.jdbc = jdbcTemplate;
-        this.adminService = adminService;
+        this.roleService = roleService;
         this.boardService = boardService;
     }
 
@@ -47,8 +47,9 @@ public class AccessScopeResolver {
         String lower = email.toLowerCase();
         String ownCode = findCodeByEmail(lower);
 
-        // Board / admin → unrestricted.
-        if (adminService.isAdmin(lower) || boardService.isBoard(lower)) {
+        // FULL-tier or board → unrestricted. NOTE: STANDARD admins are NOT unrestricted —
+        // being in app.admin.emails makes you an admin, but privileged data needs FULL tier.
+        if (roleService.isFull(lower) || boardService.isBoard(lower)) {
             return AccessScope.all(ownCode);
         }
 
