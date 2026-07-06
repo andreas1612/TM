@@ -28,9 +28,8 @@ public class RoleService {
         "msourmeli@treppides.com",
         "aparaskeva@treppides.com",
         "apieri@treppides.com",
-        "dkatsiolas@treppides.com"
-        // TEMP (2026-07-06): lpampaka@treppides.com held at STANDARD to test the
-        // FULL-only backend gate. Restore to FULL when testing is done.
+        "dkatsiolas@treppides.com",
+        "lpampaka@treppides.com"
     );
 
     // Feature keys align with the hub sidebar sections.
