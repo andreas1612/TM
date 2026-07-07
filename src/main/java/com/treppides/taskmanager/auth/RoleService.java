@@ -29,7 +29,8 @@ public class RoleService {
         "aparaskeva@treppides.com",
         "apieri@treppides.com",
         "dkatsiolas@treppides.com",
-        "lpampaka@treppides.com"
+        "lpampaka@treppides.com",
+        "etheodorou@treppides.com"   // Eleni Theodorou — added 2026-07-06 (full access)
     );
 
     // Feature keys align with the hub sidebar sections.

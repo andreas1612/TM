@@ -9,11 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 /** S1 test — tierOf + features (plain unit test, no Spring context). */
 class RoleServiceTest {
 
-    // All 9 admins (FULL 7 + STANDARD 2) as they appear in app.admin.emails.
+    // All 10 admins (FULL 8 + STANDARD 2) as they appear in app.admin.emails.
     private static final String ADMIN_EMAILS =
         "gpanayiotou@treppides.com,syiannaki@treppides.com,msourmeli@treppides.com,"
       + "aparaskeva@treppides.com,apieri@treppides.com,dkatsiolas@treppides.com,"
-      + "lpampaka@treppides.com,stavrostimotheou@treppides.com,kmagou@treppides.com";
+      + "lpampaka@treppides.com,etheodorou@treppides.com,"
+      + "stavrostimotheou@treppides.com,kmagou@treppides.com";
 
     private RoleService svc() {
         return new RoleService(new AdminService(ADMIN_EMAILS));
@@ -24,6 +25,7 @@ class RoleServiceTest {
         assertEquals(RoleService.Tier.FULL, svc().tierOf("apieri@treppides.com"));
         assertEquals(RoleService.Tier.FULL, svc().tierOf("GPANAYIOTOU@treppides.com")); // case-insensitive
         assertEquals(RoleService.Tier.FULL, svc().tierOf("lpampaka@treppides.com"));
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("etheodorou@treppides.com"));
     }
 
     @Test
