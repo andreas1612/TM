@@ -7,11 +7,21 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class EmployeeService {
+
+    // Leadership positions that may assign tasks to one another regardless of
+    // the team/department/supervisor hierarchy. Compared case-insensitively.
+    private static final Set<String> LEADERSHIP_POSITIONS = Set.of(
+            "senior leader",
+            "principal",
+            "director"
+    );
 
     private final EmployeeRepository employeeRepository;
 
@@ -58,9 +68,24 @@ public class EmployeeService {
                 .filter(employee -> !Objects.equals(employee.getEmail(), email))
                 .forEach(employee -> employeesByEmail.putIfAbsent(employee.getEmail(), employee));
 
+        // Leadership roles (Senior Leader, Principal, Director) may additionally
+        // assign tasks to one another, regardless of the hierarchy above.
+        if (isLeadershipPosition(currentEmployee.getPosition())) {
+            employeeRepository.findByPositionInAndIsActiveTrue(List.copyOf(LEADERSHIP_POSITIONS))
+                    .stream()
+                    .filter(employee -> !Objects.equals(employee.getEmail(), email))
+                    .filter(employee -> isLeadershipPosition(employee.getPosition()))
+                    .forEach(employee -> employeesByEmail.putIfAbsent(employee.getEmail(), employee));
+        }
+
         return employeesByEmail.values()
                 .stream()
                 .map(EmployeeOptionResponse::new)
                 .toList();
+    }
+
+    private boolean isLeadershipPosition(String position) {
+        return position != null
+                && LEADERSHIP_POSITIONS.contains(position.trim().toLowerCase(Locale.ROOT));
     }
 }
