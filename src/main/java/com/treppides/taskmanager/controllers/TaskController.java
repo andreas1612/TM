@@ -1,6 +1,7 @@
 package com.treppides.taskmanager.controllers;
 
 import com.treppides.taskmanager.dto.AddCommentRequest;
+import com.treppides.taskmanager.dto.CompletionEstimateResponse;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.TeamTaskGroupResponse;
@@ -80,7 +81,15 @@ public class TaskController {
         return taskService.updateTaskStatus(
                 taskId,
                 request.getStatus(),
-                request.getChangedBy()
+                request.getChangedBy(),
+                request.getTimeSpentMinutes()
+        );
+    }
+
+    @GetMapping("/{taskId}/completion-estimate")
+    public CompletionEstimateResponse getCompletionEstimate(@PathVariable Integer taskId) {
+        return new CompletionEstimateResponse(
+                taskService.getCompletionEstimateMinutes(taskId)
         );
     }
 

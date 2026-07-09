@@ -83,6 +83,9 @@ function renderMyTasks() {
                 <span class="badge ${getStatusClass(task.status)}">
                     ${formatStatus(task.status)}
                 </span>
+                ${(["COMPLETED", "DONE"].includes(task.status) && task.completionMinutes != null)
+                    ? `<div class="muted time-spent">Took ${formatDuration(task.completionMinutes)}${task.completionTimeEdited ? " · edited" : ""}</div>`
+                    : ""}
             </td>
             <td>${task.priority || "-"}</td>
             <td>
@@ -126,7 +129,20 @@ function renderMyTasks() {
             const taskId = this.dataset.taskId;
             const newStatus = this.value;
 
-            await updateTaskStatus(taskId, newStatus, currentUser.email);
+            let timeSpentMinutes = null;
+
+            if (newStatus === "COMPLETED" || newStatus === "DONE") {
+                const result = await askCompletionTime(taskId);
+
+                if (result.cancelled) {
+                    await loadMyTasks(); // revert the dropdown to the saved value
+                    return;
+                }
+
+                timeSpentMinutes = result.minutes;
+            }
+
+            await updateTaskStatus(taskId, newStatus, currentUser.email, timeSpentMinutes);
             await loadMyTasks();
         });
     });
@@ -259,6 +275,66 @@ function getStatusClass(status) {
     if (status === "COMPLETED") return "done";
     if (status === "CANCELLED") return "cancelled";
     return "";
+}
+
+async function askCompletionTime(taskId) {
+    let calculatedMinutes = 0;
+
+    try {
+        const estimate = await getCompletionEstimate(taskId);
+        if (estimate && estimate.calculatedMinutes != null) {
+            calculatedMinutes = estimate.calculatedMinutes;
+        }
+    } catch (error) {
+        console.error(error);
+    }
+
+    const defaultHours = (calculatedMinutes / 60).toFixed(1);
+
+    const input = window.prompt(
+        "How long did this task take to complete? (hours)\n" +
+        "Leave as-is to accept the calculated time.",
+        defaultHours
+    );
+
+    if (input === null) {
+        return { cancelled: true };
+    }
+
+    const trimmed = input.trim();
+
+    if (trimmed === "") {
+        return { minutes: calculatedMinutes };
+    }
+
+    const hours = parseFloat(trimmed);
+
+    if (isNaN(hours) || hours < 0) {
+        alert("Please enter a valid, non-negative number of hours.");
+        return { cancelled: true };
+    }
+
+    return { minutes: Math.round(hours * 60) };
+}
+
+function formatDuration(minutes) {
+    if (minutes == null) {
+        return "-";
+    }
+
+    const totalHours = minutes / 60;
+
+    if (totalHours >= 24) {
+        const days = Math.floor(totalHours / 24);
+        const remainingHours = Math.round(totalHours % 24);
+        return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+    }
+
+    if (totalHours >= 1) {
+        return `${Math.round(totalHours * 10) / 10}h`;
+    }
+
+    return `${minutes}m`;
 }
 
 function isOverdue(task) {

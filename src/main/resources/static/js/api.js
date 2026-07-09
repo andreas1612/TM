@@ -62,11 +62,21 @@ async function createTask(task) {
   });
 }
 
-async function updateTaskStatus(taskId, status, changedBy) {
+async function updateTaskStatus(taskId, status, changedBy, timeSpentMinutes = null) {
+  const body = { status, changedBy };
+
+  if (timeSpentMinutes !== null && timeSpentMinutes !== undefined) {
+    body.timeSpentMinutes = timeSpentMinutes;
+  }
+
   return apiRequest(`/api/tasks/${taskId}/status`, {
     method: "PUT",
-    body: JSON.stringify({ status, changedBy })
+    body: JSON.stringify(body)
   });
+}
+
+async function getCompletionEstimate(taskId) {
+  return apiRequest(`/api/tasks/${taskId}/completion-estimate`);
 }
 
 async function archiveTask(taskId, changedBy) {
