@@ -9,13 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 /** S1 test — tierOf + features (plain unit test, no Spring context). */
 class RoleServiceTest {
 
-    // All 13 admins (FULL 8 + STANDARD 5) as they appear in app.admin.emails.
+    // All 15 admins (FULL 8 + STANDARD 7) as they appear in app.admin.emails.
     private static final String ADMIN_EMAILS =
         "gpanayiotou@treppides.com,syiannaki@treppides.com,msourmeli@treppides.com,"
       + "aparaskeva@treppides.com,apieri@treppides.com,dkatsiolas@treppides.com,"
       + "lpampaka@treppides.com,etheodorou@treppides.com,"
       + "stavrostimotheou@treppides.com,kmagou@treppides.com,"
-      + "afotiou@treppides.com,lsofokleous@treppides.com,rlambrou@treppides.com"; // HR — STANDARD
+      + "afotiou@treppides.com,lsofokleous@treppides.com,rlambrou@treppides.com," // HR — STANDARD
+      + "aeleftheriou@treppides.com,exenophontos@treppides.com"; // STANDARD
 
     private RoleService svc() {
         return new RoleService(new AdminService(ADMIN_EMAILS));
@@ -33,10 +34,12 @@ class RoleServiceTest {
     void standardAdminsResolveStandard() {
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("stavrostimotheou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("kmagou@treppides.com"));
-        // HR team — admins (in app.admin.emails) but not FULL.
+        // HR team + others — admins (in app.admin.emails) but not FULL.
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("afotiou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("lsofokleous@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("rlambrou@treppides.com"));
+        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("aeleftheriou@treppides.com"));
+        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("exenophontos@treppides.com"));
     }
 
     @Test
