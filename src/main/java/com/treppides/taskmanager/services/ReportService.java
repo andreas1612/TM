@@ -3,6 +3,9 @@ package com.treppides.taskmanager.services;
 import com.treppides.taskmanager.dto.EmployeeCompletionStat;
 import com.treppides.taskmanager.dto.EmployeeStatsResponse;
 import com.treppides.taskmanager.dto.EmployeeWorkloadStat;
+import com.treppides.taskmanager.dto.GroupCompletionStat;
+import com.treppides.taskmanager.dto.GroupStatsResponse;
+import com.treppides.taskmanager.dto.GroupWorkloadStat;
 import com.treppides.taskmanager.repositories.ReportRepository;
 import org.springframework.stereotype.Service;
 
@@ -68,6 +71,60 @@ public class ReportService {
                 .stream()
                 .sorted(Comparator.comparingLong(EmployeeStatsResponse::getCompletedCount).reversed()
                         .thenComparing(Comparator.comparingLong(EmployeeStatsResponse::getOpenCount).reversed()))
+                .toList();
+    }
+
+    /**
+     * Combined per-team roll-up. Each task is counted once per team (COUNT DISTINCT),
+     * so co-assignment within a team does not inflate the totals.
+     */
+    public List<GroupStatsResponse> getTeamStats(LocalDate start, LocalDate end) {
+        return mergeGroupStats(
+                reportRepository.findWorkloadPerTeam(LocalDate.now()),
+                reportRepository.findCompletedPerTeam(start.atStartOfDay(), end.plusDays(1).atStartOfDay())
+        );
+    }
+
+    /**
+     * Combined per-department roll-up. Each task is counted once per department.
+     */
+    public List<GroupStatsResponse> getDepartmentStats(LocalDate start, LocalDate end) {
+        return mergeGroupStats(
+                reportRepository.findWorkloadPerDepartment(LocalDate.now()),
+                reportRepository.findCompletedPerDepartment(start.atStartOfDay(), end.plusDays(1).atStartOfDay())
+        );
+    }
+
+    private List<GroupStatsResponse> mergeGroupStats(
+            List<GroupWorkloadStat> workload,
+            List<GroupCompletionStat> completed
+    ) {
+        Map<Integer, GroupStatsResponse> byGroup = new LinkedHashMap<>();
+
+        for (GroupWorkloadStat stat : workload) {
+            GroupStatsResponse row = byGroup.computeIfAbsent(
+                    stat.getGroupId(), id -> new GroupStatsResponse());
+            row.setGroupId(stat.getGroupId());
+            row.setGroupName(stat.getGroupName());
+            row.setAssignedCount(stat.getAssignedCount());
+            row.setOpenCount(stat.getOpenCount());
+            row.setOverdueCount(stat.getOverdueCount());
+        }
+
+        for (GroupCompletionStat stat : completed) {
+            GroupStatsResponse row = byGroup.computeIfAbsent(
+                    stat.getGroupId(), id -> new GroupStatsResponse());
+            row.setGroupId(stat.getGroupId());
+            if (row.getGroupName() == null) {
+                row.setGroupName(stat.getGroupName());
+            }
+            row.setCompletedCount(stat.getCompletedCount());
+        }
+
+        return byGroup.values()
+                .stream()
+                .sorted(Comparator.comparingLong(GroupStatsResponse::getCompletedCount).reversed()
+                        .thenComparing(Comparator.comparingLong(GroupStatsResponse::getOpenCount).reversed()))
                 .toList();
     }
 }

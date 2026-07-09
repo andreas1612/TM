@@ -25,6 +25,24 @@ async function getCurrentUser() {
   return apiRequest("/api/me");
 }
 
+async function getEmployeeStats(start, end) {
+  return apiRequest(
+    `/api/reports/employee-stats?start=${start}&end=${end}`
+  );
+}
+
+async function getTeamStats(start, end) {
+  return apiRequest(
+    `/api/reports/team-stats?start=${start}&end=${end}`
+  );
+}
+
+async function getDepartmentStats(start, end) {
+  return apiRequest(
+    `/api/reports/department-stats?start=${start}&end=${end}`
+  );
+}
+
 async function getMyTasks(email) {
   return apiRequest(`/api/tasks/employee/${encodeURIComponent(email)}`);
 }

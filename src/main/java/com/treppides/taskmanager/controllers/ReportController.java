@@ -2,6 +2,7 @@ package com.treppides.taskmanager.controllers;
 
 import com.treppides.taskmanager.dto.EmployeeCompletionStat;
 import com.treppides.taskmanager.dto.EmployeeStatsResponse;
+import com.treppides.taskmanager.dto.GroupStatsResponse;
 import com.treppides.taskmanager.services.ReportService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -34,5 +35,21 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
         return reportService.getEmployeeStats(start, end);
+    }
+
+    @GetMapping("/team-stats")
+    public List<GroupStatsResponse> getTeamStats(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return reportService.getTeamStats(start, end);
+    }
+
+    @GetMapping("/department-stats")
+    public List<GroupStatsResponse> getDepartmentStats(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return reportService.getDepartmentStats(start, end);
     }
 }

@@ -42,6 +42,8 @@ async function loadDashboard() {
             .filter(t => t.dueDate)
             .slice(0, 5);
 
+        const overdueTasks = activeTasks.filter(isOverdue);
+
         document.getElementById("myCount").innerText =
             activeTasks.length;
 
@@ -53,6 +55,9 @@ async function loadDashboard() {
 
         document.getElementById("doneCount").innerText =
             completed;
+
+        document.getElementById("overdueCount").innerText =
+            overdueTasks.length;
 
         document.getElementById("myStats").innerText =
             `${todo} To Do • ${inProgress} In Progress • ${onHold} On Hold`;
@@ -94,6 +99,12 @@ async function loadDashboard() {
         renderTaskPreview(
             "teamTasksPreview",
             activeTeamTasks.slice(0, 5),
+            true
+        );
+
+        renderTaskPreview(
+            "overdueList",
+            overdueTasks,
             true
         );
 
@@ -206,6 +217,17 @@ function isCancelledStatus(status) {
 function isInactiveStatus(status) {
     return isCompletedStatus(status)
         || isCancelledStatus(status);
+}
+
+function isOverdue(task) {
+    if (!task.dueDate || isInactiveStatus(task.status)) {
+        return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return new Date(`${task.dueDate}T00:00:00`) < today;
 }
 
 function compareByDueDate(a, b) {

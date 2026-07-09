@@ -53,6 +53,7 @@ function renderMyTasks() {
 
     const tasks = getSortedTasks(getFilteredTasks());
     updateSortHeaders();
+    updateOverdueSummary();
 
     if (!tasks || tasks.length === 0) {
         table.innerHTML = `
@@ -68,6 +69,11 @@ function renderMyTasks() {
     tasks.forEach(task => {
         const row = document.createElement("tr");
 
+        const overdue = isOverdue(task);
+        if (overdue) {
+            row.className = "overdue-row";
+        }
+
         row.innerHTML = `
             <td>
                 <strong>${task.title}</strong>
@@ -79,7 +85,10 @@ function renderMyTasks() {
                 </span>
             </td>
             <td>${task.priority || "-"}</td>
-            <td>${task.dueDate || "No due date"}</td>
+            <td>
+                ${task.dueDate || "No due date"}
+                ${overdue ? '<span class="badge overdue">Overdue</span>' : ""}
+            </td>
              <td>
                 <button
                     type="button"
@@ -250,4 +259,22 @@ function getStatusClass(status) {
     if (status === "COMPLETED") return "done";
     if (status === "CANCELLED") return "cancelled";
     return "";
+}
+
+function isOverdue(task) {
+    if (!task.dueDate) return false;
+    if (["COMPLETED", "DONE", "CANCELLED"].includes(task.status)) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(`${task.dueDate}T00:00:00`) < today;
+}
+
+function updateOverdueSummary() {
+    const subtitle = document.getElementById("myTasksSubtitle");
+    if (!subtitle) return;
+
+    const overdueCount = allMyTasks.filter(isOverdue).length;
+    subtitle.innerHTML = overdueCount > 0
+        ? `Tasks assigned to your account • <span class="overdue-count">${overdueCount} overdue</span>`
+        : "Tasks assigned to your account";
 }
