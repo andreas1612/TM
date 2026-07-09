@@ -61,7 +61,11 @@ class RoleServiceTest {
         RoleService s = svc();
         assertTrue(s.features(RoleService.Tier.FULL).contains("financials"));
         assertTrue(s.features(RoleService.Tier.FULL).contains("simulator"));
+        // STANDARD now sees Performance + Budget KPI (self-scoped), but NOT financials/simulator.
+        assertTrue(s.features(RoleService.Tier.STANDARD).contains("performance"));
+        assertTrue(s.features(RoleService.Tier.STANDARD).contains("budgetkpi"));
         assertFalse(s.features(RoleService.Tier.STANDARD).contains("financials"));
+        assertFalse(s.features(RoleService.Tier.STANDARD).contains("simulator"));
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("kb"));
         assertTrue(s.features(RoleService.Tier.NONE).isEmpty());
     }

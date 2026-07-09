@@ -35,6 +35,12 @@ public class RoleService {
 
     // Feature keys align with the hub sidebar sections.
     private static final Set<String> BASE = Set.of("home", "kb", "staff", "tools", "support");
+    // STANDARD also sees Performance + Budget KPI, but SELF-scoped (own card or a
+    // "not applicable" message) — the backend /me endpoints are ungated, while the
+    // view-anyone endpoints stay FULL-only. NOT financials.
+    private static final Set<String> STANDARD_FEATURES = Set.of(
+        "home", "kb", "staff", "tools", "support",
+        "performance", "budgetkpi");
     private static final Set<String> FULL = Set.of(
         "home", "kb", "staff", "tools", "support",
         "performance", "budgetkpi", "financials", "simulator");
@@ -67,7 +73,7 @@ public class RoleService {
     public Set<String> features(Tier tier) {
         return switch (tier) {
             case FULL -> FULL;
-            case STANDARD -> BASE;
+            case STANDARD -> STANDARD_FEATURES;
             case NONE -> Set.of();
         };
     }
