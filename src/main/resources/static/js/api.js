@@ -55,6 +55,12 @@ async function getTeamDetail(unit, viewer, start, end) {
   );
 }
 
+async function getDepartmentDetail(department, viewer, start, end) {
+  return apiRequest(
+    `/api/reports/department-detail?department=${encodeURIComponent(department)}&viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
 async function getMyTasks(email) {
   return apiRequest(`/api/tasks/employee/${encodeURIComponent(email)}`);
 }

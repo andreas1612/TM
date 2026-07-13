@@ -56,6 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("employeeSelect").addEventListener("change", loadReport);
     document.getElementById("teamSelect").addEventListener("change", loadReport);
     document.getElementById("teamDetail").addEventListener("change", loadReport);
+    document.getElementById("departmentSelect").addEventListener("change", loadReport);
+    document.getElementById("departmentDetail").addEventListener("change", loadReport);
     document.getElementById("startInput").addEventListener("change", loadReport);
     document.getElementById("endInput").addEventListener("change", loadReport);
     document.getElementById("downloadCsv").addEventListener("click", downloadCsv);
@@ -80,10 +82,15 @@ async function loadReport() {
 
     const isEmployee = currentView === "employee";
     const isTeam = currentView === "team";
+    const isDepartment = currentView === "department";
     document.getElementById("employeeFilter").hidden = !isEmployee;
     document.getElementById("teamFilter").hidden = !isTeam;
+    document.getElementById("departmentFilter").hidden = !isDepartment;
     if (!isTeam) {
         document.getElementById("teamDetailFilter").hidden = true;
+    }
+    if (!isDepartment) {
+        document.getElementById("departmentDetailFilter").hidden = true;
     }
 
     if (!start || !end || start > end) {
@@ -100,7 +107,7 @@ async function loadReport() {
         } else if (isTeam) {
             await loadTeamView(start, end);
         } else {
-            await loadGroupView(currentView, start, end);
+            await loadDepartmentView(start, end);
         }
     } catch (err) {
         console.error(err);
@@ -144,18 +151,66 @@ async function loadEmployeeView(start, end) {
     showDetail(true);
 }
 
-async function loadGroupView(viewKey, start, end) {
-    const view = VIEWS[viewKey];
-    const rows = await view.loader(currentUserEmail, start, end) || [];
-    currentRows = rows;
-    currentMode = "summary";
+async function loadDepartmentView(start, end) {
+    const summary = await getDepartmentStats(currentUserEmail, start, end) || [];
+    populateDepartmentSelect(summary);
 
-    document.getElementById("tableTitle").innerText = view.title;
+    const unit = document.getElementById("departmentSelect").value;
+
+    if (!unit) {
+        currentMode = "summary";
+        document.getElementById("departmentDetailFilter").hidden = true;
+        document.getElementById("tableTitle").innerText = VIEWS.department.title;
+        document.getElementById("tableSubtitle").innerText =
+            `${summary.length} groups • sorted by tasks completed`;
+        renderTable(VIEWS.department, summary);
+        renderTotals(summary);
+        showDetail(false);
+        return;
+    }
+
+    document.getElementById("departmentDetailFilter").hidden = false;
+
+    const unitRow = summary.find(row => row.groupKey === unit);
+    const unitName = unitRow ? unitRow.groupName : unit;
+    renderTotals(unitRow ? [unitRow] : []); // stat cards = the department's deduped totals
+
+    const departmentId = Number(unit.split(":")[1]);
+
+    if (document.getElementById("departmentDetail").checked) {
+        currentMode = "detail";
+        const detail = await getDepartmentDetail(departmentId, currentUserEmail, start, end);
+        currentDetailTasks = detail.tasks || [];
+        currentDetailName = unitName;
+        document.getElementById("tableTitle").innerText = `${unitName} — all tasks`;
+        document.getElementById("tableSubtitle").innerText = "Department tasks grouped by status";
+        renderDetail(currentDetailTasks, true);
+        showDetail(true);
+        return;
+    }
+
+    // "People of the department" — every scoped employee in this department, any team
+    currentMode = "summary";
+    const people = (await getEmployeeStats(currentUserEmail, start, end) || [])
+        .filter(row => row.departmentId === departmentId);
+    document.getElementById("tableTitle").innerText = `${unitName} — people`;
     document.getElementById("tableSubtitle").innerText =
-        `${rows.length} groups • sorted by tasks completed`;
-    renderTable(view, rows);
-    renderTotals(rows);
+        `${people.length} people • sorted by tasks completed`;
+    renderTable(VIEWS.employee, people);
     showDetail(false);
+}
+
+function populateDepartmentSelect(rows) {
+    const select = document.getElementById("departmentSelect");
+    const previous = select.value;
+
+    const options = ['<option value="">All</option>'];
+    rows.forEach(row => {
+        options.push(`<option value="${escapeAttr(row.groupKey)}">${escapeHtml(row.groupName || row.groupKey)}</option>`);
+    });
+    select.innerHTML = options.join("");
+
+    select.value = rows.some(row => row.groupKey === previous) ? previous : "";
 }
 
 async function loadTeamView(start, end) {

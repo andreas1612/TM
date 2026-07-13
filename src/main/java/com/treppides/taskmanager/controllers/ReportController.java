@@ -66,4 +66,14 @@ public class ReportController {
     ) {
         return reportService.getTeamReportDetail(unit, viewer, start, end);
     }
+
+    @GetMapping("/department-detail")
+    public EmployeeReportDetail getDepartmentDetail(
+            @RequestParam Integer department,
+            @RequestParam String viewer,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return reportService.getDepartmentReportDetail(department, viewer, start, end);
+    }
 }

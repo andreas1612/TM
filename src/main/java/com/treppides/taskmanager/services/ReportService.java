@@ -11,9 +11,11 @@ import com.treppides.taskmanager.dto.TaskDetailRow;
 import com.treppides.taskmanager.entities.Employee;
 import com.treppides.taskmanager.entities.Task;
 import com.treppides.taskmanager.entities.TaskHistory;
+import com.treppides.taskmanager.repositories.DepartmentRepository;
 import com.treppides.taskmanager.repositories.EmployeeRepository;
 import com.treppides.taskmanager.repositories.ReportRepository;
 import com.treppides.taskmanager.repositories.TaskHistoryRepository;
+import com.treppides.taskmanager.repositories.TeamRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -33,15 +35,21 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final EmployeeRepository employeeRepository;
     private final TaskHistoryRepository taskHistoryRepository;
+    private final TeamRepository teamRepository;
+    private final DepartmentRepository departmentRepository;
     private final TaskService taskService;
 
     public ReportService(ReportRepository reportRepository,
                          EmployeeRepository employeeRepository,
                          TaskHistoryRepository taskHistoryRepository,
+                         TeamRepository teamRepository,
+                         DepartmentRepository departmentRepository,
                          TaskService taskService) {
         this.reportRepository = reportRepository;
         this.employeeRepository = employeeRepository;
         this.taskHistoryRepository = taskHistoryRepository;
+        this.teamRepository = teamRepository;
+        this.departmentRepository = departmentRepository;
         this.taskService = taskService;
     }
 
@@ -148,36 +156,95 @@ public class ReportService {
      * so co-assignment within a team does not inflate the totals.
      */
     public List<GroupStatsResponse> getTeamStats(String viewer, LocalDate start, LocalDate end) {
-        List<String> scope = resolveScopeEmails(viewer);
-        if (scope.isEmpty()) {
+        List<Employee> scopeEmployees = resolveScopeEmployees(viewer);
+        if (scopeEmployees.isEmpty()) {
             return List.of();
         }
-        return mergeGroupStats(
+        List<String> scope = scopeEmployees.stream().map(Employee::getEmail).toList();
+
+        // Seed every team/department unit the scoped people belong to, so units with no tasks still show.
+        Map<String, GroupStatsResponse> byGroup = new LinkedHashMap<>();
+        for (Employee employee : scopeEmployees) {
+            seedTeamUnit(byGroup, employee);
+        }
+
+        overlayGroupStats(byGroup,
                 reportRepository.findWorkloadPerTeam(LocalDate.now(), scope),
-                reportRepository.findCompletedPerTeam(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope)
-        );
+                reportRepository.findCompletedPerTeam(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope));
+        return sortedGroups(byGroup);
     }
 
     /**
      * Combined per-department roll-up. Each task is counted once per department.
      */
     public List<GroupStatsResponse> getDepartmentStats(String viewer, LocalDate start, LocalDate end) {
-        List<String> scope = resolveScopeEmails(viewer);
-        if (scope.isEmpty()) {
+        List<Employee> scopeEmployees = resolveScopeEmployees(viewer);
+        if (scopeEmployees.isEmpty()) {
             return List.of();
         }
-        return mergeGroupStats(
+        List<String> scope = scopeEmployees.stream().map(Employee::getEmail).toList();
+
+        // Seed every department the scoped people belong to, so departments with no tasks still show.
+        Map<String, GroupStatsResponse> byGroup = new LinkedHashMap<>();
+        for (Employee employee : scopeEmployees) {
+            String key = "dept:" + employee.getDepartment();
+            byGroup.computeIfAbsent(key, k ->
+                    newGroup(key, departmentName(employee.getDepartment()), "DEPARTMENT"));
+        }
+
+        overlayGroupStats(byGroup,
                 reportRepository.findWorkloadPerDepartment(LocalDate.now(), scope),
-                reportRepository.findCompletedPerDepartment(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope)
-        );
+                reportRepository.findCompletedPerDepartment(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope));
+        return sortedGroups(byGroup);
     }
 
-    private List<GroupStatsResponse> mergeGroupStats(
+    private void seedTeamUnit(Map<String, GroupStatsResponse> byGroup, Employee employee) {
+        String key;
+        String name;
+        String type;
+        if (employee.getTeamId() != null) {
+            key = "team:" + employee.getTeamId();
+            name = teamName(employee.getTeamId());
+            type = "TEAM";
+        } else {
+            key = "dept:" + employee.getDepartment();
+            name = departmentName(employee.getDepartment()) + " (no team)";
+            type = "DEPARTMENT";
+        }
+        byGroup.computeIfAbsent(key, k -> newGroup(key, name, type));
+    }
+
+    private GroupStatsResponse newGroup(String key, String name, String type) {
+        GroupStatsResponse row = new GroupStatsResponse();
+        row.setGroupKey(key);
+        row.setGroupName(name);
+        row.setGroupType(type);
+        return row;
+    }
+
+    private String teamName(Integer teamId) {
+        return teamRepository.findById(teamId).map(team -> team.getName()).orElse("Team " + teamId);
+    }
+
+    private String departmentName(Integer departmentId) {
+        return departmentRepository.findById(departmentId)
+                .map(department -> department.getName())
+                .orElse("Department " + departmentId);
+    }
+
+    private List<GroupStatsResponse> sortedGroups(Map<String, GroupStatsResponse> byGroup) {
+        return byGroup.values()
+                .stream()
+                .sorted(Comparator.comparingLong(GroupStatsResponse::getCompletedCount).reversed()
+                        .thenComparing(Comparator.comparingLong(GroupStatsResponse::getOpenCount).reversed()))
+                .toList();
+    }
+
+    private void overlayGroupStats(
+            Map<String, GroupStatsResponse> byGroup,
             List<GroupWorkloadStat> workload,
             List<GroupCompletionStat> completed
     ) {
-        Map<String, GroupStatsResponse> byGroup = new LinkedHashMap<>();
-
         for (GroupWorkloadStat stat : workload) {
             GroupStatsResponse row = byGroup.computeIfAbsent(
                     stat.getGroupKey(), key -> new GroupStatsResponse());
@@ -199,12 +266,6 @@ public class ReportService {
             }
             row.setCompletedCount(stat.getCompletedCount());
         }
-
-        return byGroup.values()
-                .stream()
-                .sorted(Comparator.comparingLong(GroupStatsResponse::getCompletedCount).reversed()
-                        .thenComparing(Comparator.comparingLong(GroupStatsResponse::getOpenCount).reversed()))
-                .toList();
     }
 
     /**
@@ -242,16 +303,32 @@ public class ReportService {
      * Tasks assigned to several members of the unit are counted once (deduped by task id).
      */
     public EmployeeReportDetail getTeamReportDetail(String unitKey, String viewer, LocalDate start, LocalDate end) {
+        return buildDetailForMembers(unitKey, resolveUnitMembers(unitKey), viewer, start, end);
+    }
+
+    /**
+     * Task-level detail for an entire department (all its active members, any team),
+     * limited to the people under the viewer.
+     */
+    public EmployeeReportDetail getDepartmentReportDetail(Integer departmentId, String viewer, LocalDate start, LocalDate end) {
+        return buildDetailForMembers(
+                "dept:" + departmentId,
+                employeeRepository.findByDepartmentIdAndIsActiveTrue(departmentId),
+                viewer, start, end);
+    }
+
+    private EmployeeReportDetail buildDetailForMembers(
+            String detailKey, List<Employee> members, String viewer, LocalDate start, LocalDate end) {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.plusDays(1).atStartOfDay();
         LocalDate today = LocalDate.now();
         LocalDateTime now = LocalDateTime.now();
 
-        // only the unit members that are also under the viewer
+        // only the members that are also under the viewer
         Set<String> scope = new HashSet<>(resolveScopeEmails(viewer));
 
         Map<Integer, Task> distinctTasks = new LinkedHashMap<>();
-        for (Employee member : resolveUnitMembers(unitKey)) {
+        for (Employee member : members) {
             if (!scope.contains(member.getEmail())) {
                 continue;
             }
@@ -270,7 +347,7 @@ public class ReportService {
         sortDetailRows(rows);
 
         EmployeeReportDetail detail = new EmployeeReportDetail();
-        detail.setEmail(unitKey);
+        detail.setEmail(detailKey);
         detail.setTasks(rows);
         return detail;
     }
