@@ -419,6 +419,16 @@ public class TaskService {
         return tasks;
     }
 
+    /**
+     * All tasks assigned to the employee, INCLUDING archived ones (used by reports).
+     */
+    public List<Task> getAllTasksForEmployee(String email) {
+        return taskAssignmentRepository.findByAssignedTo_Email(email)
+                .stream()
+                .map(TaskAssignment::getTask)
+                .toList();
+    }
+
     public List<TaskResponse> convertToTaskResponses(List<Task> tasks) {
         List<TaskResponse> responses = new ArrayList<>();
 

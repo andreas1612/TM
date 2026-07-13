@@ -560,6 +560,13 @@ html[data-theme="dark"] select {
   font-weight: 700;
 }
 
+.badge.archived {
+  background: var(--surface-soft);
+  color: var(--muted);
+  border-color: var(--border);
+  margin-left: 8px;
+}
+
 /* ---------- Reports ---------- */
 
 .report-filters {

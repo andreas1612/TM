@@ -283,7 +283,7 @@ public class ReportService {
         LocalDateTime now = LocalDateTime.now();
 
         List<TaskDetailRow> rows = new ArrayList<>();
-        for (Task task : taskService.getTasksForEmployee(email)) {
+        for (Task task : taskService.getAllTasksForEmployee(email)) {
             TaskDetailRow row = buildTaskDetailRow(task, startDateTime, endDateTime, today, now);
             if (row != null) {
                 rows.add(row);
@@ -332,7 +332,7 @@ public class ReportService {
             if (!scope.contains(member.getEmail())) {
                 continue;
             }
-            for (Task task : taskService.getTasksForEmployee(member.getEmail())) {
+            for (Task task : taskService.getAllTasksForEmployee(member.getEmail())) {
                 distinctTasks.putIfAbsent(task.getTaskId(), task);
             }
         }
@@ -459,6 +459,7 @@ public class ReportService {
         row.setCompleted(completedInRange);
         row.setOpen(open);
         row.setOverdue(overdue);
+        row.setArchived(task.isArchived());
         row.setMinutesToComplete(minutesToComplete);
         row.setMinutesOpen(minutesOpen);
         return row;

@@ -15,11 +15,12 @@ public class TaskDetailRow {
     private String priority;
     private String client;
     private LocalDate dueDate;
-    private List<String> assignedTo;   // full names of the people the task is assigned to
+    private List<String> assignedTo;    // full names of the people the task is assigned to
     private LocalDate completedAt;      // date the task last reached a completed status (null if not completed)
     private boolean completed;          // completed within the report's date range
     private boolean open;               // currently in a non-terminal status
     private boolean overdue;            // missed deadline (open & past due, or completed after due date)
+    private boolean archived;           // the task has been archived
     private Integer minutesToComplete;  // how long it took (completed tasks)
     private Integer minutesOpen;        // how long it has been open (open tasks)
 
@@ -55,6 +56,9 @@ public class TaskDetailRow {
 
     public boolean isOverdue() { return overdue; }
     public void setOverdue(boolean overdue) { this.overdue = overdue; }
+
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
 
     public Integer getMinutesToComplete() { return minutesToComplete; }
     public void setMinutesToComplete(Integer minutesToComplete) { this.minutesToComplete = minutesToComplete; }

@@ -42,6 +42,7 @@ let currentView = "employee";
 let currentMode = "summary";      // "summary" | "detail"
 let currentDetailTasks = [];
 let currentDetailName = "";
+let currentReportName = "report";   // friendly name used in the downloaded file
 let currentSummaryColumns = [];   // columns of the currently displayed summary table (for CSV)
 let currentSummaryRows = [];      // rows of the currently displayed summary table (for CSV)
 let currentUserEmail = null;      // the logged-in viewer; reports are scoped to their people
@@ -61,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("startInput").addEventListener("change", loadReport);
     document.getElementById("endInput").addEventListener("change", loadReport);
     document.getElementById("downloadCsv").addEventListener("click", downloadCsv);
+    document.getElementById("downloadPdf").addEventListener("click", downloadPdf);
 
     loadUser().then(loadReport);
 });
@@ -127,6 +129,7 @@ async function loadEmployeeView(start, end) {
 
     if (!selectedEmail) {
         currentMode = "summary";
+        currentReportName = "Employees";
         document.getElementById("tableTitle").innerText = view.title;
         document.getElementById("tableSubtitle").innerText =
             `${summary.length} people • sorted by tasks completed`;
@@ -143,6 +146,7 @@ async function loadEmployeeView(start, end) {
     const detail = await getEmployeeDetail(selectedEmail, start, end);
     currentDetailTasks = detail.tasks || [];
     currentDetailName = detail.fullName || detail.email || selectedEmail;
+    currentReportName = currentDetailName;
 
     document.getElementById("tableTitle").innerText = currentDetailName;
     document.getElementById("tableSubtitle").innerText =
@@ -159,6 +163,7 @@ async function loadDepartmentView(start, end) {
 
     if (!unit) {
         currentMode = "summary";
+        currentReportName = "Departments";
         document.getElementById("departmentDetailFilter").hidden = true;
         document.getElementById("tableTitle").innerText = VIEWS.department.title;
         document.getElementById("tableSubtitle").innerText =
@@ -173,6 +178,7 @@ async function loadDepartmentView(start, end) {
 
     const unitRow = summary.find(row => row.groupKey === unit);
     const unitName = unitRow ? unitRow.groupName : unit;
+    currentReportName = unitName;
     renderTotals(unitRow ? [unitRow] : []); // stat cards = the department's deduped totals
 
     const departmentId = Number(unit.split(":")[1]);
@@ -221,6 +227,7 @@ async function loadTeamView(start, end) {
 
     if (!unit) {
         currentMode = "summary";
+        currentReportName = "Teams";
         document.getElementById("teamDetailFilter").hidden = true;
         document.getElementById("tableTitle").innerText = VIEWS.team.title;
         document.getElementById("tableSubtitle").innerText =
@@ -235,6 +242,7 @@ async function loadTeamView(start, end) {
 
     const unitRow = summary.find(row => row.groupKey === unit);
     const unitName = unitRow ? unitRow.groupName : unit;
+    currentReportName = unitName;
     renderTotals(unitRow ? [unitRow] : []); // stat cards = the unit's deduped totals
 
     if (document.getElementById("teamDetail").checked) {
@@ -400,9 +408,13 @@ function assigneeCell(task, showAssignees) {
     return `<td>${escapeHtml(names)}</td>`;
 }
 
+function archivedBadge(task) {
+    return task.archived ? ' <span class="badge archived">Archived</span>' : "";
+}
+
 function completedRow(task, showAssignees) {
     return `<tr class="${task.overdue ? "overdue-row" : ""}">
-        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Late</span>' : ""}</td>
+        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Late</span>' : ""}${archivedBadge(task)}</td>
         ${assigneeCell(task, showAssignees)}
         <td>${task.completedAt || "-"}</td>
         <td>${formatDuration(task.minutesToComplete)}</td>
@@ -412,7 +424,7 @@ function completedRow(task, showAssignees) {
 
 function openRow(task, showAssignees) {
     return `<tr class="${task.overdue ? "overdue-row" : ""}">
-        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Overdue</span>' : ""}</td>
+        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Overdue</span>' : ""}${archivedBadge(task)}</td>
         ${assigneeCell(task, showAssignees)}
         <td>${task.dueDate || "No due date"}</td>
         <td>${formatDuration(task.minutesOpen)}</td>
@@ -421,7 +433,7 @@ function openRow(task, showAssignees) {
 
 function cancelledRow(task, showAssignees) {
     return `<tr>
-        <td><strong>${escapeHtml(task.title)}</strong></td>
+        <td><strong>${escapeHtml(task.title)}</strong>${archivedBadge(task)}</td>
         ${assigneeCell(task, showAssignees)}
         <td>${task.dueDate || "No due date"}</td>
         <td>${escapeHtml(task.client || "-")}</td>
@@ -444,11 +456,116 @@ function formatCell(row, column) {
     return escapeHtml(value);
 }
 
+function reportBaseName() {
+    const start = document.getElementById("startInput").value;
+    const end = document.getElementById("endInput").value;
+    return `${sanitizeFileName(currentReportName)}_report_${fileDate(start)}_${fileDate(end)}`;
+}
+
+function reportFileName() {
+    return `${reportBaseName()}.csv`;
+}
+
+function displayDate(isoDate) {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}/${month}/${year}`;
+}
+
+function downloadPdf() {
+    const start = document.getElementById("startInput").value;
+    const end = document.getElementById("endInput").value;
+    const heading = document.getElementById("tableTitle").innerText;
+    const subtitle = document.getElementById("tableSubtitle").innerText;
+    const rangeText = `${displayDate(start)} – ${displayDate(end)}`;
+
+    const stats = [
+        ["Completed", "totalCompleted"],
+        ["Assigned", "totalAssigned"],
+        ["Open", "totalOpen"],
+        ["Overdue", "totalOverdue"]
+    ].map(([label, id]) =>
+        `<div><span>${label}</span><strong>${escapeHtml(document.getElementById(id).innerText)}</strong></div>`
+    ).join("");
+
+    const content = currentMode === "detail"
+        ? document.getElementById("detailContainer").innerHTML
+        : document.getElementById("reportTable").outerHTML;
+
+    const base = reportBaseName();
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(base)}</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .stats div { border: 1px solid #ccc; border-radius: 8px; padding: 8px 14px; }
+  .stats span { display: block; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .06em; }
+  .stats strong { font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+  th { background: #f0f0f0; }
+  h3 { font-size: 14px; margin: 18px 0 6px; }
+  .badge { font-size: 10px; border: 1px solid #999; border-radius: 10px; padding: 1px 6px; white-space: nowrap; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(heading)}</h1>
+  <div class="meta">${escapeHtml(rangeText)} &middot; ${escapeHtml(subtitle)}</div>
+  <div class="stats">${stats}</div>
+  ${content}
+</body>
+</html>`;
+
+    printHtml(html);
+}
+
+function printHtml(html) {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 250);
+}
+
+function fileDate(isoDate) {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}${month}${year}`;
+}
+
+function sanitizeFileName(name) {
+    const cleaned = (name || "report")
+        .replace(/[\\/:*?"<>|]/g, "")   // strip filesystem-illegal characters
+        .trim()
+        .replace(/\s+/g, "_");          // spaces -> underscores
+    return cleaned || "report";
+}
+
 function downloadCsv() {
-    const range = `${document.getElementById("startInput").value}_${document.getElementById("endInput").value}`;
+    const filename = reportFileName();
 
     if (currentMode === "detail") {
-        downloadDetailCsv(range);
+        downloadDetailCsv(filename);
         return;
     }
 
@@ -466,11 +583,11 @@ function downloadCsv() {
         }).join(","));
     });
 
-    triggerCsvDownload(lines, `report-${currentView}-${range}.csv`);
+    triggerCsvDownload(lines, filename);
 }
 
-function downloadDetailCsv(range) {
-    const header = ["Task", "Assigned to", "Status", "Due date", "Completed on", "Time taken (h)", "Open for (h)", "Overdue"];
+function downloadDetailCsv(filename) {
+    const header = ["Task", "Assigned to", "Status", "Due date", "Completed on", "Time taken (h)", "Open for (h)", "Overdue", "Archived"];
     const lines = [header.map(csvCell).join(",")];
 
     currentDetailTasks.forEach(task => {
@@ -482,12 +599,12 @@ function downloadDetailCsv(range) {
             task.completedAt || "",
             task.minutesToComplete != null ? (task.minutesToComplete / 60).toFixed(1) : "",
             task.minutesOpen != null ? (task.minutesOpen / 60).toFixed(1) : "",
-            task.overdue ? "Yes" : "No"
+            task.overdue ? "Yes" : "No",
+            task.archived ? "Yes" : "No"
         ].map(csvCell).join(","));
     });
 
-    const safeName = (currentDetailName || "employee").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-    triggerCsvDownload(lines, `report-${safeName}-${range}.csv`);
+    triggerCsvDownload(lines, filename);
 }
 
 function triggerCsvDownload(lines, filename) {
