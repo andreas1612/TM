@@ -25,21 +25,33 @@ async function getCurrentUser() {
   return apiRequest("/api/me");
 }
 
-async function getEmployeeStats(start, end) {
+async function getEmployeeStats(viewer, start, end) {
   return apiRequest(
-    `/api/reports/employee-stats?start=${start}&end=${end}`
+    `/api/reports/employee-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
   );
 }
 
-async function getTeamStats(start, end) {
+async function getTeamStats(viewer, start, end) {
   return apiRequest(
-    `/api/reports/team-stats?start=${start}&end=${end}`
+    `/api/reports/team-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
   );
 }
 
-async function getDepartmentStats(start, end) {
+async function getDepartmentStats(viewer, start, end) {
   return apiRequest(
-    `/api/reports/department-stats?start=${start}&end=${end}`
+    `/api/reports/department-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
+async function getEmployeeDetail(email, start, end) {
+  return apiRequest(
+    `/api/reports/employee-detail?email=${encodeURIComponent(email)}&start=${start}&end=${end}`
+  );
+}
+
+async function getTeamDetail(unit, viewer, start, end) {
+  return apiRequest(
+    `/api/reports/team-detail?unit=${encodeURIComponent(unit)}&viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
   );
 }
 

@@ -563,16 +563,37 @@ html[data-theme="dark"] select {
 /* ---------- Reports ---------- */
 
 .report-filters {
-  grid-template-columns: minmax(160px, 240px) minmax(160px, 240px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
   margin: 0 0 8px;
 }
 
 .report-filters label {
   display: grid;
   gap: 6px;
+  min-width: 170px;
   font-weight: 700;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* let the `hidden` attribute win over the display rules above */
+.report-filters label[hidden] {
+  display: none !important;
+}
+
+.report-filters label.checkbox-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 9px;
+}
+
+.report-filters label.checkbox-filter input {
+  width: auto;
 }
 
 .report-note {
@@ -582,6 +603,25 @@ html[data-theme="dark"] select {
 
 .report-table-wrap {
   overflow-x: auto;
+}
+
+.detail-section {
+  margin-top: 22px;
+  overflow-x: auto;
+}
+
+.detail-section:first-child {
+  margin-top: 0;
+}
+
+.detail-section h3 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+
+.detail-section h3 .muted {
+  font-weight: 400;
+  font-size: 14px;
 }
 
 /* ---------- Responsive ---------- */

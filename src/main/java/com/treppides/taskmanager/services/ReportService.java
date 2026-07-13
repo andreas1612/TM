@@ -1,49 +1,76 @@
 package com.treppides.taskmanager.services;
 
 import com.treppides.taskmanager.dto.EmployeeCompletionStat;
+import com.treppides.taskmanager.dto.EmployeeReportDetail;
 import com.treppides.taskmanager.dto.EmployeeStatsResponse;
 import com.treppides.taskmanager.dto.EmployeeWorkloadStat;
 import com.treppides.taskmanager.dto.GroupCompletionStat;
 import com.treppides.taskmanager.dto.GroupStatsResponse;
 import com.treppides.taskmanager.dto.GroupWorkloadStat;
+import com.treppides.taskmanager.dto.TaskDetailRow;
+import com.treppides.taskmanager.entities.Employee;
+import com.treppides.taskmanager.entities.Task;
+import com.treppides.taskmanager.entities.TaskHistory;
+import com.treppides.taskmanager.repositories.EmployeeRepository;
 import com.treppides.taskmanager.repositories.ReportRepository;
+import com.treppides.taskmanager.repositories.TaskHistoryRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class ReportService {
 
     private final ReportRepository reportRepository;
+    private final EmployeeRepository employeeRepository;
+    private final TaskHistoryRepository taskHistoryRepository;
+    private final TaskService taskService;
 
-    public ReportService(ReportRepository reportRepository) {
+    public ReportService(ReportRepository reportRepository,
+                         EmployeeRepository employeeRepository,
+                         TaskHistoryRepository taskHistoryRepository,
+                         TaskService taskService) {
         this.reportRepository = reportRepository;
+        this.employeeRepository = employeeRepository;
+        this.taskHistoryRepository = taskHistoryRepository;
+        this.taskService = taskService;
     }
 
     /**
-     * Tasks completed per employee between start and end (both inclusive, by calendar day).
+     * Combined per-employee stats for everyone under the viewer (their team + direct reports):
+     * completedCount within [start, end], plus a current snapshot of assigned/open/overdue.
+     * Merges the two source queries by email so an employee shows up if they have EITHER
+     * completions in the range OR a live workload. Sorted by completed desc, then open desc.
      */
-    public List<EmployeeCompletionStat> getCompletedPerEmployee(LocalDate start, LocalDate end) {
-        return reportRepository.findCompletedPerEmployee(
-                start.atStartOfDay(),
-                end.plusDays(1).atStartOfDay()
-        );
-    }
+    public List<EmployeeStatsResponse> getEmployeeStats(String viewer, LocalDate start, LocalDate end) {
+        List<Employee> scopeEmployees = resolveScopeEmployees(viewer);
+        if (scopeEmployees.isEmpty()) {
+            return List.of();
+        }
+        List<String> scope = scopeEmployees.stream().map(Employee::getEmail).toList();
 
-    /**
-     * Combined per-employee stats: completedCount within [start, end], plus a current
-     * snapshot of assigned/open/overdue. Merges the two source queries by email so an
-     * employee shows up if they have EITHER completions in the range OR a live workload.
-     * Sorted by completed desc, then open desc.
-     */
-    public List<EmployeeStatsResponse> getEmployeeStats(LocalDate start, LocalDate end) {
         Map<String, EmployeeStatsResponse> byEmail = new LinkedHashMap<>();
 
-        for (EmployeeWorkloadStat workload : reportRepository.findWorkloadPerEmployee(LocalDate.now())) {
+        // Seed every person under the viewer so those with no tasks still show up (with zeros).
+        for (Employee employee : scopeEmployees) {
+            EmployeeStatsResponse row = new EmployeeStatsResponse();
+            row.setEmail(employee.getEmail());
+            row.setFullName(employee.getFullName());
+            row.setDepartmentId(employee.getDepartment());
+            row.setTeamId(employee.getTeamId());
+            byEmail.put(employee.getEmail(), row);
+        }
+
+        for (EmployeeWorkloadStat workload : reportRepository.findWorkloadPerEmployee(LocalDate.now(), scope)) {
             EmployeeStatsResponse row = byEmail.computeIfAbsent(
                     workload.getEmail(), email -> new EmployeeStatsResponse());
             row.setEmail(workload.getEmail());
@@ -55,7 +82,9 @@ public class ReportService {
             row.setOverdueCount(workload.getOverdueCount());
         }
 
-        for (EmployeeCompletionStat completed : getCompletedPerEmployee(start, end)) {
+        List<EmployeeCompletionStat> completedStats = reportRepository.findCompletedPerEmployee(
+                start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope);
+        for (EmployeeCompletionStat completed : completedStats) {
             EmployeeStatsResponse row = byEmail.computeIfAbsent(
                     completed.getEmail(), email -> new EmployeeStatsResponse());
             row.setEmail(completed.getEmail());
@@ -75,23 +104,71 @@ public class ReportService {
     }
 
     /**
+     * Emails of everyone "under" the viewer — mirrors the Team Tasks page: the viewer's team
+     * (or their no-team department peers) plus their direct reports. Active employees only.
+     */
+    private List<Employee> resolveScopeEmployees(String viewerEmail) {
+        Employee viewer = employeeRepository.findById(viewerEmail).orElse(null);
+        if (viewer == null) {
+            return List.of();
+        }
+
+        Map<String, Employee> byEmail = new LinkedHashMap<>();
+
+        // The viewer and their own team (or their no-team department peers).
+        byEmail.put(viewer.getEmail(), viewer);
+        addUnitMembers(viewer, byEmail);
+
+        // Each direct report, PLUS the whole team/department that report belongs to — so a
+        // manager who supervises someone on another team can see that entire team/department.
+        for (Employee report : employeeRepository.findBySupervisorIdAndIsActiveTrue(viewerEmail)) {
+            byEmail.putIfAbsent(report.getEmail(), report);
+            addUnitMembers(report, byEmail);
+        }
+
+        return new ArrayList<>(byEmail.values());
+    }
+
+    private void addUnitMembers(Employee employee, Map<String, Employee> byEmail) {
+        List<Employee> members = employee.getTeamId() != null
+                ? employeeRepository.findByTeamIdAndIsActiveTrue(employee.getTeamId())
+                : employeeRepository.findByDepartmentIdAndTeamIdIsNullAndIsActiveTrue(employee.getDepartment());
+        members.forEach(member -> byEmail.putIfAbsent(member.getEmail(), member));
+    }
+
+    private List<String> resolveScopeEmails(String viewerEmail) {
+        return resolveScopeEmployees(viewerEmail)
+                .stream()
+                .map(Employee::getEmail)
+                .toList();
+    }
+
+    /**
      * Combined per-team roll-up. Each task is counted once per team (COUNT DISTINCT),
      * so co-assignment within a team does not inflate the totals.
      */
-    public List<GroupStatsResponse> getTeamStats(LocalDate start, LocalDate end) {
+    public List<GroupStatsResponse> getTeamStats(String viewer, LocalDate start, LocalDate end) {
+        List<String> scope = resolveScopeEmails(viewer);
+        if (scope.isEmpty()) {
+            return List.of();
+        }
         return mergeGroupStats(
-                reportRepository.findWorkloadPerTeam(LocalDate.now()),
-                reportRepository.findCompletedPerTeam(start.atStartOfDay(), end.plusDays(1).atStartOfDay())
+                reportRepository.findWorkloadPerTeam(LocalDate.now(), scope),
+                reportRepository.findCompletedPerTeam(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope)
         );
     }
 
     /**
      * Combined per-department roll-up. Each task is counted once per department.
      */
-    public List<GroupStatsResponse> getDepartmentStats(LocalDate start, LocalDate end) {
+    public List<GroupStatsResponse> getDepartmentStats(String viewer, LocalDate start, LocalDate end) {
+        List<String> scope = resolveScopeEmails(viewer);
+        if (scope.isEmpty()) {
+            return List.of();
+        }
         return mergeGroupStats(
-                reportRepository.findWorkloadPerDepartment(LocalDate.now()),
-                reportRepository.findCompletedPerDepartment(start.atStartOfDay(), end.plusDays(1).atStartOfDay())
+                reportRepository.findWorkloadPerDepartment(LocalDate.now(), scope),
+                reportRepository.findCompletedPerDepartment(start.atStartOfDay(), end.plusDays(1).atStartOfDay(), scope)
         );
     }
 
@@ -99,13 +176,14 @@ public class ReportService {
             List<GroupWorkloadStat> workload,
             List<GroupCompletionStat> completed
     ) {
-        Map<Integer, GroupStatsResponse> byGroup = new LinkedHashMap<>();
+        Map<String, GroupStatsResponse> byGroup = new LinkedHashMap<>();
 
         for (GroupWorkloadStat stat : workload) {
             GroupStatsResponse row = byGroup.computeIfAbsent(
-                    stat.getGroupId(), id -> new GroupStatsResponse());
-            row.setGroupId(stat.getGroupId());
+                    stat.getGroupKey(), key -> new GroupStatsResponse());
+            row.setGroupKey(stat.getGroupKey());
             row.setGroupName(stat.getGroupName());
+            row.setGroupType(stat.getGroupType());
             row.setAssignedCount(stat.getAssignedCount());
             row.setOpenCount(stat.getOpenCount());
             row.setOverdueCount(stat.getOverdueCount());
@@ -113,10 +191,11 @@ public class ReportService {
 
         for (GroupCompletionStat stat : completed) {
             GroupStatsResponse row = byGroup.computeIfAbsent(
-                    stat.getGroupId(), id -> new GroupStatsResponse());
-            row.setGroupId(stat.getGroupId());
+                    stat.getGroupKey(), key -> new GroupStatsResponse());
+            row.setGroupKey(stat.getGroupKey());
             if (row.getGroupName() == null) {
                 row.setGroupName(stat.getGroupName());
+                row.setGroupType(stat.getGroupType());
             }
             row.setCompletedCount(stat.getCompletedCount());
         }
@@ -126,5 +205,211 @@ public class ReportService {
                 .sorted(Comparator.comparingLong(GroupStatsResponse::getCompletedCount).reversed()
                         .thenComparing(Comparator.comparingLong(GroupStatsResponse::getOpenCount).reversed()))
                 .toList();
+    }
+
+    /**
+     * Task-level detail for one employee: every non-archived task assigned to them that is
+     * either currently open OR was completed within [start, end]. Each row carries how long a
+     * completed task took, how long an open task has been open, and whether it is overdue.
+     */
+    public EmployeeReportDetail getEmployeeReportDetail(String email, LocalDate start, LocalDate end) {
+        Employee employee = employeeRepository.findById(email)
+                .orElseThrow(() -> new RuntimeException("Employee not found: " + email));
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.plusDays(1).atStartOfDay();
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        List<TaskDetailRow> rows = new ArrayList<>();
+        for (Task task : taskService.getTasksForEmployee(email)) {
+            TaskDetailRow row = buildTaskDetailRow(task, startDateTime, endDateTime, today, now);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        sortDetailRows(rows);
+
+        EmployeeReportDetail detail = new EmployeeReportDetail();
+        detail.setEmail(employee.getEmail());
+        detail.setFullName(employee.getFullName());
+        detail.setTasks(rows);
+        return detail;
+    }
+
+    /**
+     * Task-level detail for a whole team unit ("team:<id>" or "dept:<id>" for the no-team bucket).
+     * Tasks assigned to several members of the unit are counted once (deduped by task id).
+     */
+    public EmployeeReportDetail getTeamReportDetail(String unitKey, String viewer, LocalDate start, LocalDate end) {
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.plusDays(1).atStartOfDay();
+        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
+
+        // only the unit members that are also under the viewer
+        Set<String> scope = new HashSet<>(resolveScopeEmails(viewer));
+
+        Map<Integer, Task> distinctTasks = new LinkedHashMap<>();
+        for (Employee member : resolveUnitMembers(unitKey)) {
+            if (!scope.contains(member.getEmail())) {
+                continue;
+            }
+            for (Task task : taskService.getTasksForEmployee(member.getEmail())) {
+                distinctTasks.putIfAbsent(task.getTaskId(), task);
+            }
+        }
+
+        List<TaskDetailRow> rows = new ArrayList<>();
+        for (Task task : distinctTasks.values()) {
+            TaskDetailRow row = buildTaskDetailRow(task, startDateTime, endDateTime, today, now);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        sortDetailRows(rows);
+
+        EmployeeReportDetail detail = new EmployeeReportDetail();
+        detail.setEmail(unitKey);
+        detail.setTasks(rows);
+        return detail;
+    }
+
+    private List<Employee> resolveUnitMembers(String unitKey) {
+        if (unitKey == null || !unitKey.contains(":")) {
+            return List.of();
+        }
+
+        String[] parts = unitKey.split(":", 2);
+        Integer id;
+        try {
+            id = Integer.valueOf(parts[1]);
+        } catch (NumberFormatException ex) {
+            return List.of();
+        }
+
+        if ("team".equals(parts[0])) {
+            return employeeRepository.findByTeamIdAndIsActiveTrue(id);
+        }
+        if ("dept".equals(parts[0])) {
+            return employeeRepository.findByDepartmentIdAndTeamIdIsNullAndIsActiveTrue(id);
+        }
+        return List.of();
+    }
+
+    /**
+     * Builds one detail row, or returns null if the task is not relevant to the report
+     * (i.e. neither currently open, nor completed within the range, nor cancelled).
+     */
+    private TaskDetailRow buildTaskDetailRow(
+            Task task,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTime,
+            LocalDate today,
+            LocalDateTime now
+    ) {
+        List<TaskHistory> history =
+                taskHistoryRepository.findByTask_TaskIdOrderByChangedAtAsc(task.getTaskId());
+
+        LocalDateTime firstInProgress = null;
+        LocalDateTime lastCompleted = null;
+        for (TaskHistory entry : history) {
+            if (!"Status".equals(entry.getFieldChanged())) {
+                continue;
+            }
+            if (firstInProgress == null && "IN_PROGRESS".equals(entry.getNewValue())) {
+                firstInProgress = entry.getChangedAt();
+            }
+            if (isCompletedStatus(entry.getNewValue())) {
+                lastCompleted = entry.getChangedAt();
+            }
+        }
+
+        boolean completed = isCompletedStatus(task.getStatus());
+        boolean open = !isTerminalStatus(task.getStatus());
+        boolean cancelled = "CANCELLED".equals(task.getStatus());
+        LocalDateTime durationStart = firstInProgress != null ? firstInProgress : task.getCreatedAt();
+
+        boolean completedInRange = completed
+                && lastCompleted != null
+                && !lastCompleted.isBefore(startDateTime)
+                && lastCompleted.isBefore(endDateTime);
+
+        // include currently-open tasks, tasks completed within the range, and cancelled tasks
+        if (!open && !completedInRange && !cancelled) {
+            return null;
+        }
+
+        Integer minutesToComplete = null;
+        if (completed) {
+            if (task.getCompletionMinutes() != null) {
+                minutesToComplete = task.getCompletionMinutes();
+            } else if (lastCompleted != null && durationStart != null
+                    && !lastCompleted.isBefore(durationStart)) {
+                minutesToComplete = (int) Duration.between(durationStart, lastCompleted).toMinutes();
+            }
+        }
+
+        Integer minutesOpen = null;
+        if (open && durationStart != null && !now.isBefore(durationStart)) {
+            minutesOpen = (int) Duration.between(durationStart, now).toMinutes();
+        }
+
+        boolean overdue = false;
+        if (task.getDueDate() != null && task.getDueDate().isBefore(today)) {
+            if (open) {
+                overdue = true;
+            } else if (completed && lastCompleted != null
+                    && lastCompleted.toLocalDate().isAfter(task.getDueDate())) {
+                overdue = true;
+            }
+        }
+
+        List<String> assignees = taskService.getAssignmentsForTask(task.getTaskId())
+                .stream()
+                .map(assignment -> assignment.getAssignedTo().getFullName())
+                .toList();
+
+        TaskDetailRow row = new TaskDetailRow();
+        row.setTaskId(task.getTaskId());
+        row.setTitle(task.getTitle());
+        row.setStatus(task.getStatus());
+        row.setPriority(task.getPriority());
+        row.setClient(task.getClient());
+        row.setDueDate(task.getDueDate());
+        row.setAssignedTo(assignees);
+        row.setCompletedAt(lastCompleted != null ? lastCompleted.toLocalDate() : null);
+        row.setCompleted(completedInRange);
+        row.setOpen(open);
+        row.setOverdue(overdue);
+        row.setMinutesToComplete(minutesToComplete);
+        row.setMinutesOpen(minutesOpen);
+        return row;
+    }
+
+    private void sortDetailRows(List<TaskDetailRow> rows) {
+        // Overdue first, then open, then completed; longest-open / longest-to-complete near the top.
+        rows.sort(Comparator
+                .comparing(TaskDetailRow::isOverdue).reversed()
+                .thenComparing(Comparator.comparing(TaskDetailRow::isOpen).reversed())
+                .thenComparing(this::effectiveMinutes, Comparator.reverseOrder()));
+    }
+
+    private long effectiveMinutes(TaskDetailRow row) {
+        if (row.getMinutesOpen() != null) {
+            return row.getMinutesOpen();
+        }
+        if (row.getMinutesToComplete() != null) {
+            return row.getMinutesToComplete();
+        }
+        return 0L;
+    }
+
+    private boolean isCompletedStatus(String status) {
+        return "COMPLETED".equals(status) || "DONE".equals(status);
+    }
+
+    private boolean isTerminalStatus(String status) {
+        return isCompletedStatus(status) || "CANCELLED".equals(status);
     }
 }

@@ -53,13 +53,33 @@
                         <option value="department">Department</option>
                     </select>
                 </label>
+                <label id="employeeFilter" hidden>
+                    Employee
+                    <select id="employeeSelect">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <label id="teamFilter" hidden>
+                    Team
+                    <select id="teamSelect">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <label id="teamDetailFilter" class="checkbox-filter" hidden>
+                    <input type="checkbox" id="teamDetail">
+                    <span>Detailed (tasks by status)</span>
+                </label>
                 <label>
-                    Month
-                    <input type="month" id="monthInput">
+                    From
+                    <input type="date" id="startInput">
+                </label>
+                <label>
+                    To
+                    <input type="date" id="endInput">
                 </label>
             </div>
             <p class="muted report-note">
-                <strong>Completed</strong> counts tasks finished within the selected month.
+                <strong>Completed</strong> counts tasks finished within the selected date range.
                 <strong>Assigned</strong>, <strong>Open</strong> and <strong>Overdue</strong> are a live snapshot (as of now).
             </p>
         </section>
@@ -68,7 +88,7 @@
             <div class="stat-card">
                 <p class="stat-label">Completed</p>
                 <h2 id="totalCompleted">0</h2>
-                <span class="stat-subtitle">In selected month</span>
+                <span class="stat-subtitle">In selected range</span>
             </div>
             <div class="stat-card">
                 <p class="stat-label">Assigned</p>
@@ -95,12 +115,14 @@
                 </div>
             </div>
 
-            <div class="report-table-wrap">
+            <div class="report-table-wrap" id="summaryWrap">
                 <table class="table" id="reportTable">
                     <thead id="reportHead"></thead>
                     <tbody id="reportBody"></tbody>
                 </table>
             </div>
+
+            <div id="detailContainer" hidden></div>
         </section>
     </main>
 </div>

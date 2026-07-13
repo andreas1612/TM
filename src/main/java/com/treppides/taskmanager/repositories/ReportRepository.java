@@ -33,12 +33,14 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
           AND h.NewValue IN ('COMPLETED', 'DONE')
           AND h.ChangedAt >= :start
           AND h.ChangedAt < :end
+          AND e.EMAIL IN (:scope)
         GROUP BY e.EMAIL, e.FULLNAME, e.DEPARTMENTID, e.TEAMID
         ORDER BY completedCount DESC
     """, nativeQuery = true)
     List<EmployeeCompletionStat> findCompletedPerEmployee(
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
+            @Param("end") LocalDateTime end,
+            @Param("scope") List<String> scope
     );
 
     /**
@@ -79,34 +81,54 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
             GROUP BY h2.TaskId
         ) comp ON comp.taskId = t.TaskId
         WHERE COALESCE(t.IsArchived, 0) = 0
+          AND e.EMAIL IN (:scope)
         GROUP BY e.EMAIL, e.FULLNAME, e.DEPARTMENTID, e.TEAMID
     """, nativeQuery = true)
-    List<EmployeeWorkloadStat> findWorkloadPerEmployee(@Param("today") LocalDate today);
+    List<EmployeeWorkloadStat> findWorkloadPerEmployee(
+            @Param("today") LocalDate today,
+            @Param("scope") List<String> scope
+    );
 
-    // ----- Team roll-ups (each task counted once per team) -----
+    // ----- Team roll-ups: grouped by team, or by department for employees with no team -----
 
     @Query(value = """
-        SELECT e.TEAMID AS groupId,
-               tm.NAME AS groupName,
+        SELECT CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
+                    ELSE CONCAT('dept:', e.DEPARTMENTID) END AS groupKey,
+               CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
+                    ELSE CONCAT(d.NAME, ' (no team)') END AS groupName,
+               CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
+                    ELSE 'DEPARTMENT' END AS groupType,
                COUNT(DISTINCT h.TaskId) AS completedCount
         FROM TaskHistory h
         JOIN TaskAssignments ta ON ta.TaskId = h.TaskId
         JOIN EMPLOYEES e ON ta.AssignedTo = e.EMAIL
         LEFT JOIN TEAMS tm ON tm.ID = e.TEAMID
+        LEFT JOIN DEPARTMENTS d ON d.ID = e.DEPARTMENTID
         WHERE h.FieldChanged = 'Status'
           AND h.NewValue IN ('COMPLETED', 'DONE')
           AND h.ChangedAt >= :start
           AND h.ChangedAt < :end
-        GROUP BY e.TEAMID, tm.NAME
+          AND e.EMAIL IN (:scope)
+        GROUP BY CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
+                      ELSE CONCAT('dept:', e.DEPARTMENTID) END,
+                 CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
+                      ELSE CONCAT(d.NAME, ' (no team)') END,
+                 CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
+                      ELSE 'DEPARTMENT' END
     """, nativeQuery = true)
     List<GroupCompletionStat> findCompletedPerTeam(
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
+            @Param("end") LocalDateTime end,
+            @Param("scope") List<String> scope
     );
 
     @Query(value = """
-        SELECT e.TEAMID AS groupId,
-               tm.NAME AS groupName,
+        SELECT CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
+                    ELSE CONCAT('dept:', e.DEPARTMENTID) END AS groupKey,
+               CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
+                    ELSE CONCAT(d.NAME, ' (no team)') END AS groupName,
+               CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
+                    ELSE 'DEPARTMENT' END AS groupType,
                COUNT(DISTINCT t.TaskId) AS assignedCount,
                COUNT(DISTINCT CASE
                      WHEN t.Status NOT IN ('COMPLETED', 'DONE', 'CANCELLED')
@@ -124,6 +146,7 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
         JOIN TaskAssignments ta ON ta.TaskId = t.TaskId
         JOIN EMPLOYEES e ON ta.AssignedTo = e.EMAIL
         LEFT JOIN TEAMS tm ON tm.ID = e.TEAMID
+        LEFT JOIN DEPARTMENTS d ON d.ID = e.DEPARTMENTID
         LEFT JOIN (
             SELECT h2.TaskId AS taskId,
                    MAX(CAST(h2.ChangedAt AS DATE)) AS lastCompletedDate
@@ -133,15 +156,25 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
             GROUP BY h2.TaskId
         ) comp ON comp.taskId = t.TaskId
         WHERE COALESCE(t.IsArchived, 0) = 0
-        GROUP BY e.TEAMID, tm.NAME
+          AND e.EMAIL IN (:scope)
+        GROUP BY CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
+                      ELSE CONCAT('dept:', e.DEPARTMENTID) END,
+                 CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
+                      ELSE CONCAT(d.NAME, ' (no team)') END,
+                 CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
+                      ELSE 'DEPARTMENT' END
     """, nativeQuery = true)
-    List<GroupWorkloadStat> findWorkloadPerTeam(@Param("today") LocalDate today);
+    List<GroupWorkloadStat> findWorkloadPerTeam(
+            @Param("today") LocalDate today,
+            @Param("scope") List<String> scope
+    );
 
     // ----- Department roll-ups (each task counted once per department) -----
 
     @Query(value = """
-        SELECT e.DEPARTMENTID AS groupId,
+        SELECT CONCAT('dept:', e.DEPARTMENTID) AS groupKey,
                d.NAME AS groupName,
+               'DEPARTMENT' AS groupType,
                COUNT(DISTINCT h.TaskId) AS completedCount
         FROM TaskHistory h
         JOIN TaskAssignments ta ON ta.TaskId = h.TaskId
@@ -151,16 +184,19 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
           AND h.NewValue IN ('COMPLETED', 'DONE')
           AND h.ChangedAt >= :start
           AND h.ChangedAt < :end
-        GROUP BY e.DEPARTMENTID, d.NAME
+          AND e.EMAIL IN (:scope)
+        GROUP BY CONCAT('dept:', e.DEPARTMENTID), d.NAME
     """, nativeQuery = true)
     List<GroupCompletionStat> findCompletedPerDepartment(
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
+            @Param("end") LocalDateTime end,
+            @Param("scope") List<String> scope
     );
 
     @Query(value = """
-        SELECT e.DEPARTMENTID AS groupId,
+        SELECT CONCAT('dept:', e.DEPARTMENTID) AS groupKey,
                d.NAME AS groupName,
+               'DEPARTMENT' AS groupType,
                COUNT(DISTINCT t.TaskId) AS assignedCount,
                COUNT(DISTINCT CASE
                      WHEN t.Status NOT IN ('COMPLETED', 'DONE', 'CANCELLED')
@@ -187,7 +223,11 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
             GROUP BY h2.TaskId
         ) comp ON comp.taskId = t.TaskId
         WHERE COALESCE(t.IsArchived, 0) = 0
-        GROUP BY e.DEPARTMENTID, d.NAME
+          AND e.EMAIL IN (:scope)
+        GROUP BY CONCAT('dept:', e.DEPARTMENTID), d.NAME
     """, nativeQuery = true)
-    List<GroupWorkloadStat> findWorkloadPerDepartment(@Param("today") LocalDate today);
+    List<GroupWorkloadStat> findWorkloadPerDepartment(
+            @Param("today") LocalDate today,
+            @Param("scope") List<String> scope
+    );
 }
