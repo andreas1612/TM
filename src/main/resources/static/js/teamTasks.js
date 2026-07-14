@@ -80,15 +80,20 @@ function renderTaskGroups(groups) {
 
         groupSection.className = "team-task-group";
 
+        const overdueCount = (group.tasks || []).filter(isOverdue).length;
+
         groupSection.innerHTML = `
             <div class="team-task-group-header">
                 <div>
                     <h3>${group.groupName}</h3>
                     <p>${formatGroupType(group.groupType)}</p>
                 </div>
-                <span class="badge">
-                    ${group.tasks ? group.tasks.length : 0} tasks
-                </span>
+                <div>
+                    <span class="badge">
+                        ${group.tasks ? group.tasks.length : 0} tasks
+                    </span>
+                    ${overdueCount > 0 ? `<span class="badge overdue">${overdueCount} overdue</span>` : ""}
+                </div>
             </div>
 
             <table class="table">
@@ -165,6 +170,11 @@ function renderGroupRows(groupSection, tableBody, tasks, filters, sortState) {
     filteredTasks.forEach(task => {
         const row = document.createElement("tr");
 
+        const overdue = isOverdue(task);
+        if (overdue) {
+            row.className = "overdue-row";
+        }
+
         row.innerHTML = `
             <td>
                 <strong>${task.title}</strong>
@@ -181,6 +191,7 @@ function renderGroupRows(groupSection, tableBody, tasks, filters, sortState) {
             </td>
             <td>
                 ${task.dueDate || "-"}
+                ${overdue ? '<span class="badge overdue">Overdue</span>' : ""}
             </td>
             <td>
                 <button
@@ -324,13 +335,21 @@ function getStatusClass(status) {
         return "todo";
     if (status === "IN_PROGRESS")
         return "progress";
-    if (status === "ON_HOLD") 
+    if (status === "ON_HOLD")
         return "hold";
     if (status === "COMPLETED")
         return "done";
     if (status === "CANCELLED")
         return "cancelled";
     return "";
+}
+
+function isOverdue(task) {
+    if (!task.dueDate) return false;
+    if (["COMPLETED", "DONE", "CANCELLED"].includes(task.status)) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(`${task.dueDate}T00:00:00`) < today;
 }
 
 function openTask(taskId) {

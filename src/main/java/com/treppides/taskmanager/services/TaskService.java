@@ -28,6 +28,8 @@ import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -315,6 +317,11 @@ public class TaskService {
 
     @Transactional
     public Task updateTaskStatus(Integer taskId, String newStatus, String changedByEmail) {
+        return updateTaskStatus(taskId, newStatus, changedByEmail, null);
+    }
+
+    @Transactional
+    public Task updateTaskStatus(Integer taskId, String newStatus, String changedByEmail, Integer reportedMinutes) {
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
@@ -327,9 +334,54 @@ public class TaskService {
 
             addHistory(task, changedBy, "Status", oldStatus, newStatus);
             task.setStatus(newStatus);
+
+            if (isCompletedStatus(newStatus) && !isCompletedStatus(oldStatus)) {
+                applyCompletionTiming(task, reportedMinutes);
+            }
         }
 
         return taskRepository.save(task);
+    }
+
+    /**
+     * System-calculated time-to-complete in minutes: from the first time the task moved to
+     * IN_PROGRESS (or its creation, if it never did) until now. Never negative.
+     */
+    public long getCompletionEstimateMinutes(Integer taskId) {
+        return computeCalculatedMinutes(getTaskById(taskId));
+    }
+
+    private long computeCalculatedMinutes(Task task) {
+        LocalDateTime start = taskHistoryRepository
+                .findFirstByTask_TaskIdAndFieldChangedAndNewValueOrderByChangedAtAsc(
+                        task.getTaskId(), "Status", "IN_PROGRESS")
+                .map(TaskHistory::getChangedAt)
+                .orElse(task.getCreatedAt());
+
+        LocalDateTime end = LocalDateTime.now();
+
+        if (start == null || end.isBefore(start)) {
+            return 0L;
+        }
+
+        return Duration.between(start, end).toMinutes();
+    }
+
+    private void applyCompletionTiming(Task task, Integer reportedMinutes) {
+        int calculated = (int) computeCalculatedMinutes(task);
+        task.setCalculatedMinutes(calculated);
+
+        if (reportedMinutes != null && reportedMinutes >= 0) {
+            task.setCompletionMinutes(reportedMinutes);
+            task.setCompletionTimeEdited(reportedMinutes != calculated);
+        } else {
+            task.setCompletionMinutes(calculated);
+            task.setCompletionTimeEdited(false);
+        }
+    }
+
+    private boolean isCompletedStatus(String status) {
+        return "COMPLETED".equals(status) || "DONE".equals(status);
     }
 
     @Transactional
@@ -365,6 +417,16 @@ public class TaskService {
         }
 
         return tasks;
+    }
+
+    /**
+     * All tasks assigned to the employee, INCLUDING archived ones (used by reports).
+     */
+    public List<Task> getAllTasksForEmployee(String email) {
+        return taskAssignmentRepository.findByAssignedTo_Email(email)
+                .stream()
+                .map(TaskAssignment::getTask)
+                .toList();
     }
 
     public List<TaskResponse> convertToTaskResponses(List<Task> tasks) {
@@ -405,8 +467,13 @@ public class TaskService {
         }
 
         if (!Objects.equals(task.getStatus(), request.getStatus())) {
-            addHistory(task, changedBy, "Status", task.getStatus(), request.getStatus());
+            String oldStatus = task.getStatus();
+            addHistory(task, changedBy, "Status", oldStatus, request.getStatus());
             task.setStatus(request.getStatus());
+
+            if (isCompletedStatus(request.getStatus()) && !isCompletedStatus(oldStatus)) {
+                applyCompletionTiming(task, null);
+            }
         }
 
         if (!Objects.equals(task.getPriority(), request.getPriority())) {

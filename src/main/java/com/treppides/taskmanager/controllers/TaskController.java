@@ -2,6 +2,7 @@ package com.treppides.taskmanager.controllers;
 
 import com.treppides.taskmanager.auth.AdminService;
 import com.treppides.taskmanager.dto.AddCommentRequest;
+import com.treppides.taskmanager.dto.CompletionEstimateResponse;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
 import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.TeamTaskGroupResponse;
@@ -98,7 +99,17 @@ public class TaskController {
         Task task = taskService.getTaskById(taskId);
         requireTaskAccess(auth, task);
         // Derive changedBy from session (C2)
-        return taskService.updateTaskStatus(taskId, request.getStatus(), currentUser);
+        return taskService.updateTaskStatus(taskId, request.getStatus(), currentUser, request.getTimeSpentMinutes());
+    }
+
+    @GetMapping("/{taskId}/completion-estimate")
+    public CompletionEstimateResponse getCompletionEstimate(Authentication auth,
+                                                            @PathVariable Integer taskId) {
+        Task task = taskService.getTaskById(taskId);
+        requireTaskAccess(auth, task);
+        return new CompletionEstimateResponse(
+                taskService.getCompletionEstimateMinutes(taskId)
+        );
     }
 
     @GetMapping("/{taskId}/comments")

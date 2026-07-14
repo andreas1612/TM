@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">TM</div>
+            <div>
+                <h2>Task Manager</h2>
+                <p>Internal Tools</p>
+            </div>
+        </div>
+
+        <nav class="side-nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/my-tasks.html">My Tasks</a>
+            <a href="/team-tasks.html">Team Tasks</a>
+            <a href="/create-task.html">Create Task</a>
+            <a class="active" href="/reports.html">Reports</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Analytics</p>
+                <h1>Reports</h1>
+                <p id="userName" class="muted">Loading user...</p>
+            </div>
+
+            <div class="header-actions">
+                <button id="themeToggle" class="secondary-button" type="button" aria-label="Toggle color theme"></button>
+                <button id="downloadPdf" class="secondary-button" type="button">Download PDF</button>
+                <button id="downloadCsv" class="primary-button" type="button">Download CSV</button>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="table-filters report-filters">
+                <label>
+                    Group by
+                    <select id="viewSelect">
+                        <option value="employee">Employee</option>
+                        <option value="team">Team</option>
+                        <option value="department">Department</option>
+                    </select>
+                </label>
+                <label id="employeeFilter" hidden>
+                    Employee
+                    <select id="employeeSelect">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <label id="teamFilter" hidden>
+                    Team
+                    <select id="teamSelect">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <label id="teamDetailFilter" class="checkbox-filter" hidden>
+                    <input type="checkbox" id="teamDetail">
+                    <span>Detailed (tasks by status)</span>
+                </label>
+                <label id="departmentFilter" hidden>
+                    Department
+                    <select id="departmentSelect">
+                        <option value="">All</option>
+                    </select>
+                </label>
+                <label id="departmentDetailFilter" class="checkbox-filter" hidden>
+                    <input type="checkbox" id="departmentDetail">
+                    <span>Detailed (tasks by status)</span>
+                </label>
+                <label>
+                    From
+                    <input type="date" id="startInput">
+                </label>
+                <label>
+                    To
+                    <input type="date" id="endInput">
+                </label>
+            </div>
+            <p class="muted report-note">
+                <strong>Completed</strong> counts tasks finished within the selected date range.
+                <strong>Assigned</strong>, <strong>Open</strong> and <strong>Overdue</strong> are a live snapshot (as of now).
+            </p>
+        </section>
+
+        <section class="summary-grid">
+            <div class="stat-card">
+                <p class="stat-label">Completed</p>
+                <h2 id="totalCompleted">0</h2>
+                <span class="stat-subtitle">In selected range</span>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Assigned</p>
+                <h2 id="totalAssigned">0</h2>
+                <span class="stat-subtitle">Active tasks now</span>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Open</p>
+                <h2 id="totalOpen">0</h2>
+                <span class="stat-subtitle">Not yet completed</span>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Overdue</p>
+                <h2 id="totalOverdue">0</h2>
+                <span class="stat-subtitle">Missed deadline (open or completed late)</span>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 id="tableTitle">By Employee</h2>
+                    <p id="tableSubtitle">Sorted by tasks completed</p>
+                </div>
+            </div>
+
+            <div class="report-table-wrap" id="summaryWrap">
+                <table class="table" id="reportTable">
+                    <thead id="reportHead"></thead>
+                    <tbody id="reportBody"></tbody>
+                </table>
+            </div>
+
+            <div id="detailContainer" hidden></div>
+        </section>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/reports.js"></script>
+</body>
+</html>

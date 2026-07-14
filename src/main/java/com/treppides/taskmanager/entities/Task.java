@@ -56,6 +56,18 @@ public class Task {
     @Column(name = "IsArchived", nullable = false)
     private Boolean isArchived = false;
 
+    // Duration the system calculated at completion (first In Progress -> Completed), in minutes.
+    @Column(name = "CalculatedMinutes")
+    private Integer calculatedMinutes;
+
+    // Final time-to-complete in minutes (the calculated value unless the user overrode it).
+    @Column(name = "CompletionMinutes")
+    private Integer completionMinutes;
+
+    // True when the user changed the value away from the system-calculated one.
+    @Column(name = "CompletionTimeEdited", nullable = false)
+    private Boolean completionTimeEdited = false;
+
     @JsonIgnore
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskAssignment> assignments = new ArrayList<>();
@@ -130,6 +142,15 @@ public class Task {
 
     public Boolean getIsArchived() { return isArchived; }
     public void setIsArchived(Boolean archived) { isArchived = archived; }
+
+    public Integer getCalculatedMinutes() { return calculatedMinutes; }
+    public void setCalculatedMinutes(Integer calculatedMinutes) { this.calculatedMinutes = calculatedMinutes; }
+
+    public Integer getCompletionMinutes() { return completionMinutes; }
+    public void setCompletionMinutes(Integer completionMinutes) { this.completionMinutes = completionMinutes; }
+
+    public Boolean getCompletionTimeEdited() { return completionTimeEdited; }
+    public void setCompletionTimeEdited(Boolean completionTimeEdited) { this.completionTimeEdited = completionTimeEdited; }
 
     public boolean isArchived() {
         return Boolean.TRUE.equals(isArchived);

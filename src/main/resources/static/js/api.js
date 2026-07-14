@@ -25,6 +25,42 @@ async function getCurrentUser() {
   return apiRequest("/api/me");
 }
 
+async function getEmployeeStats(viewer, start, end) {
+  return apiRequest(
+    `/api/reports/employee-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
+async function getTeamStats(viewer, start, end) {
+  return apiRequest(
+    `/api/reports/team-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
+async function getDepartmentStats(viewer, start, end) {
+  return apiRequest(
+    `/api/reports/department-stats?viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
+async function getEmployeeDetail(email, start, end) {
+  return apiRequest(
+    `/api/reports/employee-detail?email=${encodeURIComponent(email)}&start=${start}&end=${end}`
+  );
+}
+
+async function getTeamDetail(unit, viewer, start, end) {
+  return apiRequest(
+    `/api/reports/team-detail?unit=${encodeURIComponent(unit)}&viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
+async function getDepartmentDetail(department, viewer, start, end) {
+  return apiRequest(
+    `/api/reports/department-detail?department=${encodeURIComponent(department)}&viewer=${encodeURIComponent(viewer)}&start=${start}&end=${end}`
+  );
+}
+
 async function getMyTasks(email) {
   return apiRequest(`/api/tasks/employee/${encodeURIComponent(email)}`);
 }
@@ -44,11 +80,21 @@ async function createTask(task) {
   });
 }
 
-async function updateTaskStatus(taskId, status, changedBy) {
+async function updateTaskStatus(taskId, status, changedBy, timeSpentMinutes = null) {
+  const body = { status, changedBy };
+
+  if (timeSpentMinutes !== null && timeSpentMinutes !== undefined) {
+    body.timeSpentMinutes = timeSpentMinutes;
+  }
+
   return apiRequest(`/api/tasks/${taskId}/status`, {
     method: "PUT",
-    body: JSON.stringify({ status, changedBy })
+    body: JSON.stringify(body)
   });
+}
+
+async function getCompletionEstimate(taskId) {
+  return apiRequest(`/api/tasks/${taskId}/completion-estimate`);
 }
 
 async function archiveTask(taskId, changedBy) {
