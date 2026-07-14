@@ -17,6 +17,9 @@ public class TaskResponse {
     private List<String> assignedTo;
     private String client;
     private Boolean isArchived;
+    private Integer calculatedMinutes;
+    private Integer completionMinutes;
+    private Boolean completionTimeEdited;
 
     public TaskResponse(Task task, List<TaskAssignment> assignments) {
         this.taskId = task.getTaskId();
@@ -27,6 +30,9 @@ public class TaskResponse {
         this.dueDate = task.getDueDate();
         this.client = task.getClient();
         this.isArchived = task.getIsArchived();
+        this.calculatedMinutes = task.getCalculatedMinutes();
+        this.completionMinutes = task.getCompletionMinutes();
+        this.completionTimeEdited = task.getCompletionTimeEdited();
 
         this.assignedTo = assignments.stream()
                 .map(a -> a.getAssignedTo().getEmail())
@@ -42,4 +48,7 @@ public class TaskResponse {
     public List<String> getAssignedTo() { return assignedTo; }
     public String getClient() { return client;}
     public Boolean getIsArchived() { return isArchived; }
+    public Integer getCalculatedMinutes() { return calculatedMinutes; }
+    public Integer getCompletionMinutes() { return completionMinutes; }
+    public Boolean getCompletionTimeEdited() { return completionTimeEdited; }
 }

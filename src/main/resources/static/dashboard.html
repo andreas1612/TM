@@ -24,6 +24,7 @@
             <a href="/my-tasks.html">My Tasks</a>
             <a href="/team-tasks.html">Team Tasks</a>
             <a href="/create-task.html">Create Task</a>
+            <a href="/reports.html">Reports</a>
         </nav>
     </aside>
 
@@ -66,6 +67,12 @@
                 <h2 id="doneCount">0</h2>
                 <span class="stat-subtitle">My completed tasks</span>
             </div>
+
+            <div class="stat-card">
+                <p class="stat-label">Overdue</p>
+                <h2 id="overdueCount">0</h2>
+                <span class="stat-subtitle">Past due &amp; still open</span>
+            </div>
         </section>
 
         <section class="dashboard-layout">
@@ -91,6 +98,17 @@
                 </div>
 
                 <div id="dueSoonList" class="task-list compact"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Overdue</h2>
+                        <p>Past due &amp; still open</p>
+                    </div>
+                </div>
+
+                <div id="overdueList" class="task-list compact"></div>
             </div>
             <div class="panel">
                 <div class="panel-header">

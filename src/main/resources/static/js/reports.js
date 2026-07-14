@@ -1,0 +1,686 @@
+const VIEWS = {
+    employee: {
+        title: "By Employee",
+        loader: getEmployeeStats,
+        columns: [
+            { key: "fullName", label: "Name" },
+            { key: "email", label: "Email" },
+            { key: "departmentId", label: "Dept" },
+            { key: "teamId", label: "Team" },
+            { key: "completedCount", label: "Completed", num: true },
+            { key: "assignedCount", label: "Assigned", num: true },
+            { key: "openCount", label: "Open", num: true },
+            { key: "overdueCount", label: "Overdue", num: true }
+        ]
+    },
+    team: {
+        title: "By Team",
+        loader: getTeamStats,
+        columns: [
+            { key: "groupName", label: "Team", fallback: "No team" },
+            { key: "completedCount", label: "Completed", num: true },
+            { key: "assignedCount", label: "Assigned", num: true },
+            { key: "openCount", label: "Open", num: true },
+            { key: "overdueCount", label: "Overdue", num: true }
+        ]
+    },
+    department: {
+        title: "By Department",
+        loader: getDepartmentStats,
+        columns: [
+            { key: "groupName", label: "Department", fallback: "Unknown" },
+            { key: "completedCount", label: "Completed", num: true },
+            { key: "assignedCount", label: "Assigned", num: true },
+            { key: "openCount", label: "Open", num: true },
+            { key: "overdueCount", label: "Overdue", num: true }
+        ]
+    }
+};
+
+let currentRows = [];
+let currentView = "employee";
+let currentMode = "summary";      // "summary" | "detail"
+let currentDetailTasks = [];
+let currentDetailName = "";
+let currentReportName = "report";   // friendly name used in the downloaded file
+let currentSummaryColumns = [];   // columns of the currently displayed summary table (for CSV)
+let currentSummaryRows = [];      // rows of the currently displayed summary table (for CSV)
+let currentUserEmail = null;      // the logged-in viewer; reports are scoped to their people
+
+document.addEventListener("DOMContentLoaded", () => {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    document.getElementById("startInput").value = toIsoDate(firstOfMonth);
+    document.getElementById("endInput").value = toIsoDate(now);
+
+    document.getElementById("viewSelect").addEventListener("change", loadReport);
+    document.getElementById("employeeSelect").addEventListener("change", loadReport);
+    document.getElementById("teamSelect").addEventListener("change", loadReport);
+    document.getElementById("teamDetail").addEventListener("change", loadReport);
+    document.getElementById("departmentSelect").addEventListener("change", loadReport);
+    document.getElementById("departmentDetail").addEventListener("change", loadReport);
+    document.getElementById("startInput").addEventListener("change", loadReport);
+    document.getElementById("endInput").addEventListener("change", loadReport);
+    document.getElementById("downloadCsv").addEventListener("click", downloadCsv);
+    document.getElementById("downloadPdf").addEventListener("click", downloadPdf);
+
+    loadUser().then(loadReport);
+});
+
+async function loadUser() {
+    try {
+        const user = await getCurrentUser();
+        currentUserEmail = user.email;
+        document.getElementById("userName").innerText = user.name;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function loadReport() {
+    currentView = document.getElementById("viewSelect").value;
+    const start = document.getElementById("startInput").value;
+    const end = document.getElementById("endInput").value;
+
+    const isEmployee = currentView === "employee";
+    const isTeam = currentView === "team";
+    const isDepartment = currentView === "department";
+    document.getElementById("employeeFilter").hidden = !isEmployee;
+    document.getElementById("teamFilter").hidden = !isTeam;
+    document.getElementById("departmentFilter").hidden = !isDepartment;
+    if (!isTeam) {
+        document.getElementById("teamDetailFilter").hidden = true;
+    }
+    if (!isDepartment) {
+        document.getElementById("departmentDetailFilter").hidden = true;
+    }
+
+    if (!start || !end || start > end) {
+        showDetail(false);
+        document.getElementById("reportHead").innerHTML = "";
+        document.getElementById("reportBody").innerHTML =
+            `<tr><td><p class="muted">Pick a valid date range (From must be on or before To).</p></td></tr>`;
+        return;
+    }
+
+    try {
+        if (isEmployee) {
+            await loadEmployeeView(start, end);
+        } else if (isTeam) {
+            await loadTeamView(start, end);
+        } else {
+            await loadDepartmentView(start, end);
+        }
+    } catch (err) {
+        console.error(err);
+        showDetail(false);
+        document.getElementById("reportBody").innerHTML =
+            `<tr><td colspan="8"><div class="error">Failed to load report.</div></td></tr>`;
+    }
+}
+
+async function loadEmployeeView(start, end) {
+    const view = VIEWS.employee;
+    const summary = await getEmployeeStats(currentUserEmail, start, end) || [];
+    currentRows = summary;
+    populateEmployeeSelect(summary);
+
+    const selectedEmail = document.getElementById("employeeSelect").value;
+
+    if (!selectedEmail) {
+        currentMode = "summary";
+        currentReportName = "Employees";
+        document.getElementById("tableTitle").innerText = view.title;
+        document.getElementById("tableSubtitle").innerText =
+            `${summary.length} people • sorted by tasks completed`;
+        renderTable(view, summary);
+        renderTotals(summary);
+        showDetail(false);
+        return;
+    }
+
+    currentMode = "detail";
+    const person = summary.find(row => row.email === selectedEmail);
+    renderTotals(person ? [person] : []);
+
+    const detail = await getEmployeeDetail(selectedEmail, start, end);
+    currentDetailTasks = detail.tasks || [];
+    currentDetailName = detail.fullName || detail.email || selectedEmail;
+    currentReportName = currentDetailName;
+
+    document.getElementById("tableTitle").innerText = currentDetailName;
+    document.getElementById("tableSubtitle").innerText =
+        "Detailed report for the selected range";
+    renderDetail(currentDetailTasks);
+    showDetail(true);
+}
+
+async function loadDepartmentView(start, end) {
+    const summary = await getDepartmentStats(currentUserEmail, start, end) || [];
+    populateDepartmentSelect(summary);
+
+    const unit = document.getElementById("departmentSelect").value;
+
+    if (!unit) {
+        currentMode = "summary";
+        currentReportName = "Departments";
+        document.getElementById("departmentDetailFilter").hidden = true;
+        document.getElementById("tableTitle").innerText = VIEWS.department.title;
+        document.getElementById("tableSubtitle").innerText =
+            `${summary.length} groups • sorted by tasks completed`;
+        renderTable(VIEWS.department, summary);
+        renderTotals(summary);
+        showDetail(false);
+        return;
+    }
+
+    document.getElementById("departmentDetailFilter").hidden = false;
+
+    const unitRow = summary.find(row => row.groupKey === unit);
+    const unitName = unitRow ? unitRow.groupName : unit;
+    currentReportName = unitName;
+    renderTotals(unitRow ? [unitRow] : []); // stat cards = the department's deduped totals
+
+    const departmentId = Number(unit.split(":")[1]);
+
+    if (document.getElementById("departmentDetail").checked) {
+        currentMode = "detail";
+        const detail = await getDepartmentDetail(departmentId, currentUserEmail, start, end);
+        currentDetailTasks = detail.tasks || [];
+        currentDetailName = unitName;
+        document.getElementById("tableTitle").innerText = `${unitName} — all tasks`;
+        document.getElementById("tableSubtitle").innerText = "Department tasks grouped by status";
+        renderDetail(currentDetailTasks, true);
+        showDetail(true);
+        return;
+    }
+
+    // "People of the department" — every scoped employee in this department, any team
+    currentMode = "summary";
+    const people = (await getEmployeeStats(currentUserEmail, start, end) || [])
+        .filter(row => row.departmentId === departmentId);
+    document.getElementById("tableTitle").innerText = `${unitName} — people`;
+    document.getElementById("tableSubtitle").innerText =
+        `${people.length} people • sorted by tasks completed`;
+    renderTable(VIEWS.employee, people);
+    showDetail(false);
+}
+
+function populateDepartmentSelect(rows) {
+    const select = document.getElementById("departmentSelect");
+    const previous = select.value;
+
+    const options = ['<option value="">All</option>'];
+    rows.forEach(row => {
+        options.push(`<option value="${escapeAttr(row.groupKey)}">${escapeHtml(row.groupName || row.groupKey)}</option>`);
+    });
+    select.innerHTML = options.join("");
+
+    select.value = rows.some(row => row.groupKey === previous) ? previous : "";
+}
+
+async function loadTeamView(start, end) {
+    const summary = await getTeamStats(currentUserEmail, start, end) || [];
+    populateUnitSelect(summary);
+
+    const unit = document.getElementById("teamSelect").value;
+
+    if (!unit) {
+        currentMode = "summary";
+        currentReportName = "Teams";
+        document.getElementById("teamDetailFilter").hidden = true;
+        document.getElementById("tableTitle").innerText = VIEWS.team.title;
+        document.getElementById("tableSubtitle").innerText =
+            `${summary.length} groups • sorted by tasks completed`;
+        renderTable(VIEWS.team, summary);
+        renderTotals(summary);
+        showDetail(false);
+        return;
+    }
+
+    document.getElementById("teamDetailFilter").hidden = false;
+
+    const unitRow = summary.find(row => row.groupKey === unit);
+    const unitName = unitRow ? unitRow.groupName : unit;
+    currentReportName = unitName;
+    renderTotals(unitRow ? [unitRow] : []); // stat cards = the unit's deduped totals
+
+    if (document.getElementById("teamDetail").checked) {
+        currentMode = "detail";
+        const detail = await getTeamDetail(unit, currentUserEmail, start, end);
+        currentDetailTasks = detail.tasks || [];
+        currentDetailName = unitName;
+        document.getElementById("tableTitle").innerText = `${unitName} — all tasks`;
+        document.getElementById("tableSubtitle").innerText = "Team tasks grouped by status";
+        renderDetail(currentDetailTasks, true);
+        showDetail(true);
+        return;
+    }
+
+    // "People of the team" — per-employee summary rows scoped to this unit's members
+    currentMode = "summary";
+    const people = (await getEmployeeStats(currentUserEmail, start, end) || [])
+        .filter(row => unitMatches(row, unit));
+    document.getElementById("tableTitle").innerText = `${unitName} — people`;
+    document.getElementById("tableSubtitle").innerText =
+        `${people.length} people • sorted by tasks completed`;
+    renderTable(VIEWS.employee, people);
+    showDetail(false);
+}
+
+function unitMatches(row, unit) {
+    const [type, idText] = unit.split(":");
+    const id = Number(idText);
+    if (type === "team") {
+        return row.teamId === id;
+    }
+    if (type === "dept") {
+        return (row.teamId === null || row.teamId === undefined) && row.departmentId === id;
+    }
+    return false;
+}
+
+function populateUnitSelect(rows) {
+    const select = document.getElementById("teamSelect");
+    const previous = select.value;
+
+    const options = ['<option value="">All</option>'];
+    rows.forEach(row => {
+        options.push(`<option value="${escapeAttr(row.groupKey)}">${escapeHtml(row.groupName || row.groupKey)}</option>`);
+    });
+    select.innerHTML = options.join("");
+
+    select.value = rows.some(row => row.groupKey === previous) ? previous : "";
+}
+
+function populateEmployeeSelect(rows) {
+    const select = document.getElementById("employeeSelect");
+    const previous = select.value;
+
+    const options = ['<option value="">All</option>'];
+    rows.forEach(row => {
+        const name = row.fullName || row.email;
+        options.push(`<option value="${escapeAttr(row.email)}">${escapeHtml(name)}</option>`);
+    });
+    select.innerHTML = options.join("");
+
+    // keep the current selection if that person is still present
+    if (rows.some(row => row.email === previous)) {
+        select.value = previous;
+    } else {
+        select.value = "";
+    }
+}
+
+function showDetail(isDetail) {
+    document.getElementById("summaryWrap").hidden = isDetail;
+    document.getElementById("detailContainer").hidden = !isDetail;
+}
+
+function renderTable(view, rows) {
+    currentSummaryColumns = view.columns;
+    currentSummaryRows = rows;
+
+    const head = document.getElementById("reportHead");
+    const body = document.getElementById("reportBody");
+
+    head.innerHTML =
+        "<tr>" + view.columns.map(c => `<th>${c.label}</th>`).join("") + "</tr>";
+
+    if (!rows.length) {
+        body.innerHTML =
+            `<tr><td colspan="${view.columns.length}"><p class="muted">No data for this period.</p></td></tr>`;
+        return;
+    }
+
+    body.innerHTML = rows.map(row =>
+        "<tr>" + view.columns.map(c => `<td>${formatCell(row, c)}</td>`).join("") + "</tr>"
+    ).join("");
+}
+
+const DETAIL_SECTIONS = [
+    { key: "TO_DO", label: "To Do", kind: "open" },
+    { key: "IN_PROGRESS", label: "In Progress", kind: "open" },
+    { key: "ON_HOLD", label: "On Hold", kind: "open" },
+    { key: "COMPLETED", label: "Completed in range", kind: "completed" },
+    { key: "CANCELLED", label: "Cancelled", kind: "cancelled" }
+];
+
+function renderDetail(tasks, showAssignees = false) {
+    const groups = {};
+    tasks.forEach(task => {
+        const key = task.status === "DONE" ? "COMPLETED" : task.status;
+        (groups[key] = groups[key] || []).push(task);
+    });
+
+    const html = DETAIL_SECTIONS
+        .map(section => renderDetailSection(section, groups[section.key] || [], showAssignees))
+        .filter(Boolean)
+        .join("");
+
+    document.getElementById("detailContainer").innerHTML =
+        html || `<p class="muted">No tasks in this range.</p>`;
+}
+
+function renderDetailSection(section, rows, showAssignees) {
+    if (rows.length === 0) {
+        return ""; // hide statuses with no tasks
+    }
+
+    const overdue = rows.filter(t => t.overdue).length;
+    const meta = overdue > 0
+        ? `<span class="muted">(${rows.length}, </span><span class="overdue-count">${overdue} overdue</span><span class="muted">)</span>`
+        : `<span class="muted">(${rows.length})</span>`;
+
+    const assigneeHead = showAssignees ? "<th>Assigned to</th>" : "";
+
+    let table;
+    if (section.kind === "completed") {
+        table = `<table class="table">
+                <thead><tr><th>Task</th>${assigneeHead}<th>Completed on</th><th>Time taken</th><th>Client</th></tr></thead>
+                <tbody>${rows.map(task => completedRow(task, showAssignees)).join("")}</tbody>
+            </table>`;
+    } else if (section.kind === "cancelled") {
+        table = `<table class="table">
+                <thead><tr><th>Task</th>${assigneeHead}<th>Due date</th><th>Client</th></tr></thead>
+                <tbody>${rows.map(task => cancelledRow(task, showAssignees)).join("")}</tbody>
+            </table>`;
+    } else {
+        table = `<table class="table">
+                <thead><tr><th>Task</th>${assigneeHead}<th>Due date</th><th>Open for</th></tr></thead>
+                <tbody>${rows.map(task => openRow(task, showAssignees)).join("")}</tbody>
+            </table>`;
+    }
+
+    return `<div class="detail-section">
+        <h3>${section.label} ${meta}</h3>
+        ${table}
+    </div>`;
+}
+
+function assigneeCell(task, showAssignees) {
+    if (!showAssignees) {
+        return "";
+    }
+    const names = (task.assignedTo && task.assignedTo.length > 0)
+        ? task.assignedTo.join(", ")
+        : "-";
+    return `<td>${escapeHtml(names)}</td>`;
+}
+
+function archivedBadge(task) {
+    return task.archived ? ' <span class="badge archived">Archived</span>' : "";
+}
+
+function completedRow(task, showAssignees) {
+    return `<tr class="${task.overdue ? "overdue-row" : ""}">
+        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Late</span>' : ""}${archivedBadge(task)}</td>
+        ${assigneeCell(task, showAssignees)}
+        <td>${task.completedAt || "-"}</td>
+        <td>${formatDuration(task.minutesToComplete)}</td>
+        <td>${escapeHtml(task.client || "-")}</td>
+    </tr>`;
+}
+
+function openRow(task, showAssignees) {
+    return `<tr class="${task.overdue ? "overdue-row" : ""}">
+        <td><strong>${escapeHtml(task.title)}</strong>${task.overdue ? ' <span class="badge overdue">Overdue</span>' : ""}${archivedBadge(task)}</td>
+        ${assigneeCell(task, showAssignees)}
+        <td>${task.dueDate || "No due date"}</td>
+        <td>${formatDuration(task.minutesOpen)}</td>
+    </tr>`;
+}
+
+function cancelledRow(task, showAssignees) {
+    return `<tr>
+        <td><strong>${escapeHtml(task.title)}</strong>${archivedBadge(task)}</td>
+        ${assigneeCell(task, showAssignees)}
+        <td>${task.dueDate || "No due date"}</td>
+        <td>${escapeHtml(task.client || "-")}</td>
+    </tr>`;
+}
+
+function renderTotals(rows) {
+    const sum = key => rows.reduce((acc, r) => acc + (r[key] || 0), 0);
+    document.getElementById("totalCompleted").innerText = sum("completedCount");
+    document.getElementById("totalAssigned").innerText = sum("assignedCount");
+    document.getElementById("totalOpen").innerText = sum("openCount");
+    document.getElementById("totalOverdue").innerText = sum("overdueCount");
+}
+
+function formatCell(row, column) {
+    const value = row[column.key];
+    if (value === null || value === undefined || value === "") {
+        return escapeHtml(column.fallback || "—");
+    }
+    return escapeHtml(value);
+}
+
+function reportBaseName() {
+    const start = document.getElementById("startInput").value;
+    const end = document.getElementById("endInput").value;
+    return `${sanitizeFileName(currentReportName)}_report_${fileDate(start)}_${fileDate(end)}`;
+}
+
+function reportFileName() {
+    return `${reportBaseName()}.csv`;
+}
+
+function displayDate(isoDate) {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}/${month}/${year}`;
+}
+
+function downloadPdf() {
+    const start = document.getElementById("startInput").value;
+    const end = document.getElementById("endInput").value;
+    const heading = document.getElementById("tableTitle").innerText;
+    const subtitle = document.getElementById("tableSubtitle").innerText;
+    const rangeText = `${displayDate(start)} – ${displayDate(end)}`;
+
+    const stats = [
+        ["Completed", "totalCompleted"],
+        ["Assigned", "totalAssigned"],
+        ["Open", "totalOpen"],
+        ["Overdue", "totalOverdue"]
+    ].map(([label, id]) =>
+        `<div><span>${label}</span><strong>${escapeHtml(document.getElementById(id).innerText)}</strong></div>`
+    ).join("");
+
+    const content = currentMode === "detail"
+        ? document.getElementById("detailContainer").innerHTML
+        : document.getElementById("reportTable").outerHTML;
+
+    const base = reportBaseName();
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(base)}</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .stats div { border: 1px solid #ccc; border-radius: 8px; padding: 8px 14px; }
+  .stats span { display: block; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .06em; }
+  .stats strong { font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+  th { background: #f0f0f0; }
+  h3 { font-size: 14px; margin: 18px 0 6px; }
+  .badge { font-size: 10px; border: 1px solid #999; border-radius: 10px; padding: 1px 6px; white-space: nowrap; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(heading)}</h1>
+  <div class="meta">${escapeHtml(rangeText)} &middot; ${escapeHtml(subtitle)}</div>
+  <div class="stats">${stats}</div>
+  ${content}
+</body>
+</html>`;
+
+    printHtml(html, base);
+}
+
+function printHtml(html, title) {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    // Browsers derive the "Save as PDF" filename from the document title; while printing an
+    // iframe they use the TOP page's title, so swap it in and restore it afterwards.
+    const originalTitle = document.title;
+
+    setTimeout(() => {
+        document.title = title;
+        iframe.contentWindow.document.title = title;
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+
+        setTimeout(() => {
+            document.title = originalTitle;
+            document.body.removeChild(iframe);
+        }, 1000);
+    }, 250);
+}
+
+function fileDate(isoDate) {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}${month}${year}`;
+}
+
+function sanitizeFileName(name) {
+    const cleaned = (name || "report")
+        .replace(/\s*\(no team\)\s*/gi, "")   // drop the "(no team)" marker from filenames
+        .replace(/[\\/:*?"<>|]/g, "")         // strip filesystem-illegal characters
+        .trim()
+        .replace(/\s+/g, "_");                // spaces -> underscores
+    return cleaned || "report";
+}
+
+function downloadCsv() {
+    const filename = reportFileName();
+
+    if (currentMode === "detail") {
+        downloadDetailCsv(filename);
+        return;
+    }
+
+    const columns = currentSummaryColumns;
+    const header = columns.map(c => c.label);
+    const lines = [header.map(csvCell).join(",")];
+
+    currentSummaryRows.forEach(row => {
+        lines.push(columns.map(c => {
+            const value = row[c.key];
+            if (value === null || value === undefined || value === "") {
+                return csvCell(c.num ? 0 : (c.fallback || ""));
+            }
+            return csvCell(value);
+        }).join(","));
+    });
+
+    triggerCsvDownload(lines, filename);
+}
+
+function downloadDetailCsv(filename) {
+    const header = ["Task", "Assigned to", "Status", "Due date", "Completed on", "Time taken (h)", "Open for (h)", "Overdue", "Archived"];
+    const lines = [header.map(csvCell).join(",")];
+
+    currentDetailTasks.forEach(task => {
+        lines.push([
+            task.title,
+            (task.assignedTo && task.assignedTo.length > 0) ? task.assignedTo.join(", ") : "",
+            formatStatusLabel(task.status),
+            task.dueDate || "",
+            task.completedAt || "",
+            task.minutesToComplete != null ? (task.minutesToComplete / 60).toFixed(1) : "",
+            task.minutesOpen != null ? (task.minutesOpen / 60).toFixed(1) : "",
+            task.overdue ? "Yes" : "No",
+            task.archived ? "Yes" : "No"
+        ].map(csvCell).join(","));
+    });
+
+    triggerCsvDownload(lines, filename);
+}
+
+function triggerCsvDownload(lines, filename) {
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+    const text = String(value);
+    if (/[",\r\n]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+}
+
+function formatDuration(minutes) {
+    if (minutes == null) {
+        return "-";
+    }
+
+    const totalHours = minutes / 60;
+
+    if (totalHours >= 24) {
+        const days = Math.floor(totalHours / 24);
+        const remainingHours = Math.round(totalHours % 24);
+        return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+    }
+
+    if (totalHours >= 1) {
+        return `${Math.round(totalHours * 10) / 10}h`;
+    }
+
+    return `${minutes}m`;
+}
+
+function formatStatusLabel(status) {
+    if (status === "TO_DO") return "To Do";
+    if (status === "IN_PROGRESS") return "In Progress";
+    if (status === "ON_HOLD") return "On Hold";
+    if (status === "COMPLETED" || status === "DONE") return "Completed";
+    if (status === "CANCELLED") return "Cancelled";
+    return status || "-";
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function escapeAttr(value) {
+    return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function toIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
