@@ -95,7 +95,7 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
         SELECT CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
                     ELSE CONCAT('dept:', e.DEPARTMENTID) END AS groupKey,
                CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
-                    ELSE CONCAT(d.NAME, ' (no team)') END AS groupName,
+                    ELSE d.NAME END AS groupName,
                CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
                     ELSE 'DEPARTMENT' END AS groupType,
                COUNT(DISTINCT h.TaskId) AS completedCount
@@ -112,7 +112,7 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
         GROUP BY CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
                       ELSE CONCAT('dept:', e.DEPARTMENTID) END,
                  CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
-                      ELSE CONCAT(d.NAME, ' (no team)') END,
+                      ELSE d.NAME END,
                  CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
                       ELSE 'DEPARTMENT' END
     """, nativeQuery = true)
@@ -126,7 +126,7 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
         SELECT CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
                     ELSE CONCAT('dept:', e.DEPARTMENTID) END AS groupKey,
                CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
-                    ELSE CONCAT(d.NAME, ' (no team)') END AS groupName,
+                    ELSE d.NAME END AS groupName,
                CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
                     ELSE 'DEPARTMENT' END AS groupType,
                COUNT(DISTINCT t.TaskId) AS assignedCount,
@@ -160,7 +160,7 @@ public interface ReportRepository extends JpaRepository<TaskHistory, Integer> {
         GROUP BY CASE WHEN e.TEAMID IS NOT NULL THEN CONCAT('team:', e.TEAMID)
                       ELSE CONCAT('dept:', e.DEPARTMENTID) END,
                  CASE WHEN e.TEAMID IS NOT NULL THEN tm.NAME
-                      ELSE CONCAT(d.NAME, ' (no team)') END,
+                      ELSE d.NAME END,
                  CASE WHEN e.TEAMID IS NOT NULL THEN 'TEAM'
                       ELSE 'DEPARTMENT' END
     """, nativeQuery = true)

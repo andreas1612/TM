@@ -208,7 +208,7 @@ public class ReportService {
             type = "TEAM";
         } else {
             key = "dept:" + employee.getDepartment();
-            name = departmentName(employee.getDepartment()) + " (no team)";
+            name = departmentName(employee.getDepartment());
             type = "DEPARTMENT";
         }
         byGroup.computeIfAbsent(key, k -> newGroup(key, name, type));

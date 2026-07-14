@@ -522,10 +522,10 @@ function downloadPdf() {
 </body>
 </html>`;
 
-    printHtml(html);
+    printHtml(html, base);
 }
 
-function printHtml(html) {
+function printHtml(html, title) {
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.right = "0";
@@ -540,10 +540,20 @@ function printHtml(html) {
     doc.write(html);
     doc.close();
 
+    // Browsers derive the "Save as PDF" filename from the document title; while printing an
+    // iframe they use the TOP page's title, so swap it in and restore it afterwards.
+    const originalTitle = document.title;
+
     setTimeout(() => {
+        document.title = title;
+        iframe.contentWindow.document.title = title;
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
+
+        setTimeout(() => {
+            document.title = originalTitle;
+            document.body.removeChild(iframe);
+        }, 1000);
     }, 250);
 }
 
@@ -555,9 +565,10 @@ function fileDate(isoDate) {
 
 function sanitizeFileName(name) {
     const cleaned = (name || "report")
-        .replace(/[\\/:*?"<>|]/g, "")   // strip filesystem-illegal characters
+        .replace(/\s*\(no team\)\s*/gi, "")   // drop the "(no team)" marker from filenames
+        .replace(/[\\/:*?"<>|]/g, "")         // strip filesystem-illegal characters
         .trim()
-        .replace(/\s+/g, "_");          // spaces -> underscores
+        .replace(/\s+/g, "_");                // spaces -> underscores
     return cleaned || "report";
 }
 
