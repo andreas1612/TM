@@ -12,6 +12,10 @@ spring.jpa.hibernate.naming.implicit-strategy=org.hibernate.boot.model.naming.Im
 
 spring.thymeleaf.cache=false
 
+# Public base URL of the app, used to build links in outgoing emails
+# (e.g. the daily time-log reminder). No trailing slash.
+app.base-url=https://taskmanager.treppides.com
+
 # --- Mail account (Office 365) ---
 spring.mail.host=smtp.office365.com
 spring.mail.port=587

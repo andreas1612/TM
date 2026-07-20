@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Time</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">TM</div>
+            <div>
+                <h2>Task Manager</h2>
+                <p>Internal Tools</p>
+            </div>
+        </div>
+
+        <nav class="side-nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/my-tasks.html">My Tasks</a>
+            <a href="/team-tasks.html">Team Tasks</a>
+            <a href="/create-task.html">Create Task</a>
+            <a href="/reports.html">Reports</a>
+            <a class="active" href="/log-time.html">Log Time</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">End of day</p>
+                <h1>Log Time</h1>
+                <p id="userName" class="muted">Loading user...</p>
+            </div>
+
+            <div class="header-actions">
+                <button id="themeToggle" class="secondary-button" type="button" aria-label="Toggle color theme"></button>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Today's hours</h2>
+                    <p>Enter the hours you worked today on each in-progress task. Blank or 0 is ignored.</p>
+                </div>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Priority</th>
+                        <th>Logged so far</th>
+                        <th>Hours today</th>
+                    </tr>
+                </thead>
+                <tbody id="logTimeTable"></tbody>
+            </table>
+
+            <div class="header-actions" style="margin-top: 1rem;">
+                <button id="saveTimeButton" class="primary-button" type="button">Save hours</button>
+                <span id="saveStatus" class="muted"></span>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/logTime.js"></script>
+</body>
+</html>

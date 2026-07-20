@@ -97,6 +97,17 @@ async function getCompletionEstimate(taskId) {
   return apiRequest(`/api/tasks/${taskId}/completion-estimate`);
 }
 
+async function getLogTimeCandidates() {
+  return apiRequest("/api/tasks/log-time/candidates");
+}
+
+async function logTime(entries) {
+  return apiRequest("/api/tasks/log-time", {
+    method: "POST",
+    body: JSON.stringify(entries)
+  });
+}
+
 async function archiveTask(taskId, changedBy) {
     return apiRequest(
         `/api/tasks/${taskId}/archive?changedBy=${encodeURIComponent(changedBy)}`,

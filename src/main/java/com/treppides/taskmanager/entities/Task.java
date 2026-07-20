@@ -68,6 +68,11 @@ public class Task {
     @Column(name = "CompletionTimeEdited", nullable = false)
     private Boolean completionTimeEdited = false;
 
+    // Running total of user-reported time worked on this task, in minutes,
+    // accumulated from the daily time-log prompts. Null until the first entry.
+    @Column(name = "LoggedMinutes")
+    private Integer loggedMinutes;
+
     @JsonIgnore
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskAssignment> assignments = new ArrayList<>();
@@ -151,6 +156,9 @@ public class Task {
 
     public Boolean getCompletionTimeEdited() { return completionTimeEdited; }
     public void setCompletionTimeEdited(Boolean completionTimeEdited) { this.completionTimeEdited = completionTimeEdited; }
+
+    public Integer getLoggedMinutes() { return loggedMinutes; }
+    public void setLoggedMinutes(Integer loggedMinutes) { this.loggedMinutes = loggedMinutes; }
 
     public boolean isArchived() {
         return Boolean.TRUE.equals(isArchived);

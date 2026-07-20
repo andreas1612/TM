@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class TaskService {
@@ -382,6 +383,47 @@ public class TaskService {
 
     private boolean isCompletedStatus(String status) {
         return "COMPLETED".equals(status) || "DONE".equals(status);
+    }
+
+    /**
+     * IN_PROGRESS, non-archived tasks assigned to the given employee. These are the
+     * tasks the daily time-log prompt asks the user to report hours against.
+     */
+    public List<Task> getInProgressTasksForEmployee(String email) {
+        return taskAssignmentRepository.findByAssignedTo_Email(email)
+                .stream()
+                .map(TaskAssignment::getTask)
+                .filter(task -> task != null && !task.isArchived())
+                .filter(task -> "IN_PROGRESS".equals(task.getStatus()))
+                .collect(Collectors.toMap(Task::getTaskId, t -> t, (a, b) -> a, LinkedHashMap::new))
+                .values()
+                .stream()
+                .toList();
+    }
+
+    /**
+     * Adds the reported minutes to the task's running logged-time total and records the
+     * change in TaskHistory. Called from the daily time-log page.
+     */
+    @Transactional
+    public Task logDailyTime(Integer taskId, String changedByEmail, int minutes) {
+        if (minutes < 0) {
+            throw new IllegalArgumentException("Logged minutes cannot be negative");
+        }
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Employee changedBy = employeeRepository.findById(changedByEmail)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        int previous = task.getLoggedMinutes() != null ? task.getLoggedMinutes() : 0;
+        int updated = previous + minutes;
+
+        task.setLoggedMinutes(updated);
+        addHistory(task, changedBy, "TimeLogged", String.valueOf(previous), String.valueOf(updated));
+
+        return taskRepository.save(task);
     }
 
     @Transactional

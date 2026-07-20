@@ -4,6 +4,7 @@ import com.treppides.taskmanager.auth.AdminService;
 import com.treppides.taskmanager.dto.AddCommentRequest;
 import com.treppides.taskmanager.dto.CompletionEstimateResponse;
 import com.treppides.taskmanager.dto.CreateTaskRequest;
+import com.treppides.taskmanager.dto.LogTimeEntry;
 import com.treppides.taskmanager.dto.TaskResponse;
 import com.treppides.taskmanager.dto.TeamTaskGroupResponse;
 import com.treppides.taskmanager.dto.UpdateStatusRequest;
@@ -51,6 +52,39 @@ public class TaskController {
                                           @PathVariable String email) {
         requireSelfOrAdmin(auth, email);
         return taskService.getTasksForEmployee(email);
+    }
+
+    // --- Daily time logging ---
+
+    /** The current user's IN_PROGRESS tasks, for the daily time-log page. */
+    @GetMapping("/log-time/candidates")
+    public List<Task> getLogTimeCandidates(Authentication auth) {
+        String currentUser = resolveEmail(auth);
+        return taskService.getInProgressTasksForEmployee(currentUser);
+    }
+
+    /** Adds today's reported minutes to each listed task's running logged-time total. */
+    @PostMapping("/log-time")
+    public void logTime(Authentication auth,
+                        @RequestBody List<LogTimeEntry> entries) {
+        String currentUser = resolveEmail(auth);
+
+        if (entries == null) {
+            return;
+        }
+
+        for (LogTimeEntry entry : entries) {
+            if (entry.getTaskId() == null || entry.getMinutes() == null) {
+                continue;
+            }
+            if (entry.getMinutes() <= 0) {
+                continue; // skip empty/zero rows
+            }
+
+            Task task = taskService.getTaskById(entry.getTaskId());
+            requireTaskAccess(auth, task);
+            taskService.logDailyTime(entry.getTaskId(), currentUser, entry.getMinutes());
+        }
     }
 
     @GetMapping("/team/{email}")

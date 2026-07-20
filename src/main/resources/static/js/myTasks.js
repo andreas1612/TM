@@ -132,7 +132,8 @@ function renderMyTasks() {
             let timeSpentMinutes = null;
 
             if (newStatus === "COMPLETED" || newStatus === "DONE") {
-                const result = await askCompletionTime(taskId);
+                const task = allMyTasks.find(t => String(t.taskId) === String(taskId));
+                const result = await askCompletionTime(taskId, task ? task.loggedMinutes : null);
 
                 if (result.cancelled) {
                     await loadMyTasks(); // revert the dropdown to the saved value
@@ -277,7 +278,7 @@ function getStatusClass(status) {
     return "";
 }
 
-async function askCompletionTime(taskId) {
+async function askCompletionTime(taskId, loggedMinutes = null) {
     let calculatedMinutes = 0;
 
     try {
@@ -289,13 +290,19 @@ async function askCompletionTime(taskId) {
         console.error(error);
     }
 
-    const defaultHours = (calculatedMinutes / 60).toFixed(1);
+    // Prefer the time the user has logged day-by-day; fall back to the
+    // system-calculated elapsed time when nothing has been logged.
+    const hasLogged = loggedMinutes != null;
+    const defaultMinutes = hasLogged ? loggedMinutes : calculatedMinutes;
+    const defaultHours = (defaultMinutes / 60).toFixed(1);
 
-    const input = window.prompt(
-        "How long did this task take to complete? (hours)\n" +
-        "Leave as-is to accept the calculated time.",
-        defaultHours
-    );
+    const promptMessage = hasLogged
+        ? "How long did this task take to complete? (hours)\n" +
+          "Pre-filled with the hours you logged. Adjust if needed."
+        : "How long did this task take to complete? (hours)\n" +
+          "Leave as-is to accept the calculated time.";
+
+    const input = window.prompt(promptMessage, defaultHours);
 
     if (input === null) {
         return { cancelled: true };
@@ -304,7 +311,7 @@ async function askCompletionTime(taskId) {
     const trimmed = input.trim();
 
     if (trimmed === "") {
-        return { minutes: calculatedMinutes };
+        return { minutes: defaultMinutes };
     }
 
     const hours = parseFloat(trimmed);

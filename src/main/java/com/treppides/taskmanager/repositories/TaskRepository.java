@@ -51,4 +51,8 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
     List<Task> findDependencyCandidatesForTask(@Param("taskId") Integer taskId);
 
     List<Task> findByDueDateIsNotNullAndStatusNotInAndIsArchivedFalse(List<String> statuses);
+
+    List<Task> findByStatusAndIsArchivedFalse(String status);
+
+    List<Task> findByStatusNotInAndIsArchivedFalse(List<String> statuses);
 }
