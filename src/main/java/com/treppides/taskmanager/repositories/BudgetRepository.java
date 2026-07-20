@@ -1,6 +1,5 @@
 package com.treppides.taskmanager.repositories;
 
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -14,16 +13,15 @@ import java.util.Optional;
 @Repository
 public class BudgetRepository {
 
+    // Migrated to the InternalTools datamart: invoiced amounts now read the
+    // esoft_invoices mirror (loaded nightly by EsoftSyncService) instead of
+    // querying eSoft live. eSoft is no longer touched at runtime by this repo.
     private final JdbcTemplate internalToolsJdbc;
-    private final JdbcTemplate esoftJdbc;
-    private final NamedParameterJdbcTemplate esoftNamedJdbc;
+    private final NamedParameterJdbcTemplate internalToolsNamedJdbc;
 
-    public BudgetRepository(
-            JdbcTemplate jdbcTemplate,
-            @Qualifier("esoftJdbcTemplate") JdbcTemplate esoftJdbcTemplate) {
+    public BudgetRepository(JdbcTemplate jdbcTemplate) {
         this.internalToolsJdbc = jdbcTemplate;
-        this.esoftJdbc = esoftJdbcTemplate;
-        this.esoftNamedJdbc = new NamedParameterJdbcTemplate(esoftJdbcTemplate.getDataSource());
+        this.internalToolsNamedJdbc = new NamedParameterJdbcTemplate(jdbcTemplate.getDataSource());
     }
 
     /** Find budget entry for a manager by eSoft code (resolves invoice_code). */
@@ -58,24 +56,24 @@ public class BudgetRepository {
      *   Value = sign * above
      */
     private static final String PBI_VALUE = """
-            CASE WHEN invsavehd_doctype = 'SRE' THEN -1 ELSE 1 END
+            CASE WHEN doctype = 'SRE' THEN -1 ELSE 1 END
             * CASE
-                WHEN invsavehd_H4 = 'EK001' AND invsavehd_account_name = 'Finanz-Audit Limited'
-                  THEN (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate / 0.7
-                WHEN invsavehd_H4 = 'EK001' AND invsavehd_account_name = 'TREPPIDES ADVISERS LIMITED'
-                  THEN (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate / 0.3
-                ELSE (invsavehd_docval - invsavehd_docvat) * invsavehd_currency_rate
+                WHEN h4_el = 'EK001' AND account_name = 'Finanz-Audit Limited'
+                  THEN (docval - docvat) * currency_rate / 0.7
+                WHEN h4_el = 'EK001' AND account_name = 'TREPPIDES ADVISERS LIMITED'
+                  THEN (docval - docvat) * currency_rate / 0.3
+                ELSE (docval - docvat) * currency_rate
               END""";
 
-    /** Actual invoiced amounts from eSoft, grouped by month — matches PBI Value formula. */
+    /** Actual invoiced amounts from the datamart mirror, grouped by month — matches PBI Value formula. */
     public List<Map<String, Object>> findMonthlyInvoiced(String invoiceCode, int year) {
         if (invoiceCode == null) return Collections.emptyList();
-        return esoftJdbc.queryForList(
-            "SELECT invsavehd_period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
-            + " FROM dbo.invsaveheaders"
-            + " WHERE invsavehd_H4 = ? AND invsavehd_year = ? AND invsavehd_status != 'C'"
-            + " GROUP BY invsavehd_period"
-            + " ORDER BY invsavehd_period",
+        return internalToolsJdbc.queryForList(
+            "SELECT period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
+            + " FROM dbo.esoft_invoices"
+            + " WHERE h4_el = ? AND year = ? AND status != 'C'"
+            + " GROUP BY period"
+            + " ORDER BY period",
             invoiceCode, year);
     }
 
@@ -103,11 +101,11 @@ public class BudgetRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("codes", invoiceCodes)
             .addValue("year", year);
-        return esoftNamedJdbc.queryForList(
-            "SELECT invsavehd_H4 AS invoice_code, invsavehd_period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
-            + " FROM dbo.invsaveheaders"
-            + " WHERE invsavehd_H4 IN (:codes) AND invsavehd_year = :year AND invsavehd_status != 'C'"
-            + " GROUP BY invsavehd_H4, invsavehd_period",
+        return internalToolsNamedJdbc.queryForList(
+            "SELECT h4_el AS invoice_code, period AS month_num, SUM(" + PBI_VALUE + ") AS invoiced"
+            + " FROM dbo.esoft_invoices"
+            + " WHERE h4_el IN (:codes) AND year = :year AND status != 'C'"
+            + " GROUP BY h4_el, period",
             params);
     }
 
@@ -125,22 +123,22 @@ public class BudgetRepository {
     /** Individual invoice lines for debugging — shows every document with all relevant fields. */
     public List<Map<String, Object>> findInvoiceDetails(String invoiceCode, int year) {
         if (invoiceCode == null) return Collections.emptyList();
-        return esoftJdbc.queryForList(
-            "SELECT invsavehd_docno AS invoice_no,"
-            + " invsavehd_period AS month_num,"
-            + " invsavehd_docdate AS doc_date,"
-            + " invsavehd_account_name AS client,"
-            + " invsavehd_docval AS gross,"
-            + " invsavehd_docvat AS vat,"
-            + " invsavehd_docval - invsavehd_docvat AS net,"
+        return internalToolsJdbc.queryForList(
+            "SELECT docno AS invoice_no,"
+            + " period AS month_num,"
+            + " docdate AS doc_date,"
+            + " account_name AS client,"
+            + " docval AS gross,"
+            + " docvat AS vat,"
+            + " docval - docvat AS net,"
             + " " + PBI_VALUE + " AS pbi_value,"
-            + " invsavehd_doctype AS doc_type,"
-            + " invsavehd_sign AS sign,"
-            + " invsavehd_currency_rate AS currency_rate,"
-            + " invsavehd_details AS description"
-            + " FROM dbo.invsaveheaders"
-            + " WHERE invsavehd_H4 = ? AND invsavehd_year = ? AND invsavehd_status != 'C'"
-            + " ORDER BY invsavehd_period, invsavehd_docdate, invsavehd_docno",
+            + " doctype AS doc_type,"
+            + " sign AS sign,"
+            + " currency_rate AS currency_rate,"
+            + " details AS description"
+            + " FROM dbo.esoft_invoices"
+            + " WHERE h4_el = ? AND year = ? AND status != 'C'"
+            + " ORDER BY period, docdate, docno",
             invoiceCode, year);
     }
 

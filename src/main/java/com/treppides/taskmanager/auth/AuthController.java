@@ -5,7 +5,9 @@ import com.treppides.taskmanager.repositories.PerformanceRepository;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -26,31 +28,63 @@ import java.util.Optional;
 public class AuthController {
 
     private final AdminService adminService;
+    private final BoardService boardService;
+    private final RoleService roleService;
     private final PerformanceRepository perfRepo;
     private final BudgetRepository budgetRepo;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @org.springframework.beans.factory.annotation.Value("${app.simulator.enabled:false}")
+    private boolean simulatorEnabled;
+
     public AuthController(AdminService adminService,
+                          BoardService boardService,
+                          RoleService roleService,
                           PerformanceRepository perfRepo,
                           BudgetRepository budgetRepo,
                           OAuth2AuthorizedClientService authorizedClientService) {
         this.adminService = adminService;
+        this.boardService = boardService;
+        this.roleService = roleService;
         this.perfRepo = perfRepo;
         this.budgetRepo = budgetRepo;
         this.authorizedClientService = authorizedClientService;
     }
 
     @GetMapping("/api/me")
-    public Map<String, Object> me(@AuthenticationPrincipal OidcUser user) {
-        String email = user.getPreferredUsername().toLowerCase();
-        String name = user.getFullName();
+    public Map<String, Object> me(Authentication auth) {
+        if (auth == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        // Works for both Azure (OidcUser) and the dev profile (X-Dev-User-Code login).
+        String email;
+        String name;
+        if (auth.getPrincipal() instanceof OidcUser oidc) {
+            email = oidc.getPreferredUsername().toLowerCase();
+            name = oidc.getFullName();
+        } else {
+            email = auth.getName().toLowerCase();
+            Object details = auth.getDetails();
+            name = details != null ? details.toString() : "";
+        }
         boolean isAdmin = adminService.isAdmin(email);
 
         Map<String, Object> result = new HashMap<>();
         result.put("email", email);
         result.put("name", name != null ? name : "");
         result.put("isAdmin", isAdmin);
+        // Financials gate: FULL-tier or configured board members (app.board.emails). Matches
+        // AccessScopeResolver (unrestricted = FULL OR board). STANDARD admins do NOT qualify.
+        result.put("isBoardMember", roleService.isFull(email) || boardService.isBoard(email));
+
+        // Hub access tier + visible feature set (single source of truth: RoleService).
+        // FULL = everything incl. hidden/WIP; STANDARD = base hub; NONE = restricted.
+        RoleService.Tier tier = roleService.tierOf(email);
+        result.put("tier", tier.name());
+        result.put("features", roleService.features(tier));
+        // Test-env only: tells the hub to show the "View as" switcher. False/absent in prod.
+        result.put("simulator", simulatorEnabled);
 
         // Resolve eSoft code
         Optional<String> codeOpt = perfRepo.findCodeByEmail(email);

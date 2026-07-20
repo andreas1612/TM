@@ -34,7 +34,6 @@ public class DevSecurityConfig {
     @Order(1)
     public SecurityFilterChain devFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher(request -> request.getHeader("X-Dev-User-Code") != null)
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.disable())
             .addFilterBefore(new DevAuthFilter(jdbcTemplate), UsernamePasswordAuthenticationFilter.class)
@@ -54,21 +53,38 @@ public class DevSecurityConfig {
         protected void doFilterInternal(HttpServletRequest request,
                                         HttpServletResponse response,
                                         FilterChain filterChain) throws ServletException, IOException {
-            String esoftCode = request.getHeader("X-Dev-User-Code");
-            if (esoftCode != null && !esoftCode.isBlank()) {
-                List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "SELECT azure_email, employee_name FROM dbo.performance_targets WHERE esoft_code = ?",
-                    esoftCode
-                );
-                if (!rows.isEmpty()) {
-                    String azureEmail   = (String) rows.get(0).get("azure_email");
-                    String employeeName = (String) rows.get(0).get("employee_name");
-                    UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(azureEmail, null, List.of());
-                    auth.setDetails(employeeName);
-                    SecurityContextHolder.getContext().setAuthentication(auth);
+            // Simulator identity resolution (dev/test only). Priority:
+            //  1) session SIM_USER_EMAIL (set by /api/sim/login) — persists across SPA requests
+            //  2) legacy X-Dev-User-Code header (esoft code → email) — back-compat
+            //  3) default = apieri (FULL admin)
+            // Identity comes from InternalTools EMPLOYEES (the source prod authenticates against),
+            // NOT eSoft — eSoft is only the KPI/performance datamart.
+            String email = null;
+            var session = request.getSession(false);
+            if (session != null && session.getAttribute("SIM_USER_EMAIL") instanceof String se && !se.isBlank()) {
+                email = se;
+            }
+            if (email == null) {
+                String code = request.getHeader("X-Dev-User-Code");
+                if (code != null && !code.isBlank()) {
+                    List<Map<String, Object>> r = jdbcTemplate.queryForList(
+                        "SELECT email FROM dbo.esoft_employees WHERE employee_code = ?", code);
+                    if (!r.isEmpty()) email = (String) r.get(0).get("email");
                 }
             }
+            if (email == null || email.isBlank()) {
+                email = "apieri@treppides.com"; // default dev/sim identity = FULL admin; NOT Ioanna
+            }
+
+            String name = email;
+            List<Map<String, Object>> nr = jdbcTemplate.queryForList(
+                "SELECT FULLNAME FROM dbo.EMPLOYEES WHERE LOWER(EMAIL) = LOWER(?)", email);
+            if (!nr.isEmpty() && nr.get(0).get("FULLNAME") != null) name = (String) nr.get(0).get("FULLNAME");
+
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(email, null, List.of());
+            auth.setDetails(name);
+            SecurityContextHolder.getContext().setAuthentication(auth);
             filterChain.doFilter(request, response);
         }
     }

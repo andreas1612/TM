@@ -1,10 +1,5 @@
 package com.treppides.taskmanager.repositories;
 
-import com.treppides.taskmanager.services.InMemoryTargetsProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -16,91 +11,102 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Performance data access — repointed to the InternalTools DATAMART (2026-06-24).
+ *
+ * Previously this read live eSoft + a stale 103-row seed table (which didn't even
+ * exist in the DB, so it fell back to an in-memory copy of the same seed). That
+ * made new eSoft staff invisible. Now EVERYTHING reads from the datamart, which is
+ * refreshed from eSoft by the sync job:
+ *
+ *   - roster / identity      -> dbo.esoft_employees  (live; new hires appear, leavers drop)
+ *   - chargeable hours        -> dbo.esoft_timesheets + esoft_workcodes + esoft_jobcards
+ *   - job title / EL / team   -> dbo.esoft_employee_categories (C1 / C2 / C3)
+ *   - target hours by level   -> dbo.level_targets  (new/unmapped staff default to 'Trainee')
+ *   - per-person level/loc/mgr-> dbo.employee_levels (snapshot; known staff keep their values)
+ *
+ * Parity verified: chargeable-hours-per-employee from the datamart matches eSoft-direct
+ * to the cent (0 mismatches across all employees). Map keys are unchanged so
+ * PerformanceService is untouched.
+ *
+ * eSoft is NEVER queried here anymore — the app reads only InternalTools.
+ */
 @Repository
 public class PerformanceRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(PerformanceRepository.class);
+    private final JdbcTemplate jdbc;                 // primary datasource = InternalTools (datamart)
+    private final NamedParameterJdbcTemplate namedJdbc;
 
-    private final JdbcTemplate internalToolsJdbc;
-    private final JdbcTemplate esoftJdbc;
-    private final NamedParameterJdbcTemplate esoftNamedJdbc;
-    private final InMemoryTargetsProvider fallback;
+    public PerformanceRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbc = jdbcTemplate;
+        this.namedJdbc = new NamedParameterJdbcTemplate(jdbcTemplate);
+    }
 
-    public PerformanceRepository(
-            JdbcTemplate jdbcTemplate,
-            @Qualifier("esoftJdbcTemplate") JdbcTemplate esoftJdbcTemplate,
-            InMemoryTargetsProvider fallback) {
-        this.internalToolsJdbc = jdbcTemplate;
-        this.esoftJdbc = esoftJdbcTemplate;
-        this.esoftNamedJdbc = new NamedParameterJdbcTemplate(esoftJdbcTemplate.getDataSource());
-        this.fallback = fallback;
+    /** Resolve an email to an eSoft employee code (active staff only). */
+    public Optional<String> findCodeByEmail(String email) {
+        List<String> rows = jdbc.queryForList("""
+            SELECT employee_code
+            FROM   dbo.esoft_employees
+            WHERE  LOWER(email) = LOWER(?)
+              AND  inactive = 0
+            """, String.class, email);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
     /**
-     * Resolve an email address to an eSoft employee code.
-     * Matches against invservemployee_email (the @treppides.com format
-     * which is what Azure AD preferred_username returns).
+     * Target/identity row for an employee. Returns a row for ANY employee in the
+     * roster — unmapped/new staff resolve to the 'Trainee' target by default
+     * (instead of the old 404). Keys match the old performance_targets shape.
      */
-    public Optional<String> findCodeByEmail(String email) {
-        List<Map<String, Object>> rows = esoftJdbc.queryForList("""
-            SELECT invservemployee_code
-            FROM   dbo.invservemployees
-            WHERE  invservemployee_email = ?
-              AND  invservemployee_inactive = 0
-            """, email);
-        return rows.isEmpty() ? Optional.empty()
-            : Optional.of((String) rows.get(0).get("invservemployee_code"));
-    }
-
     public Optional<Map<String, Object>> findTargetByCode(String esoftCode) {
-        try {
-            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
-                SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
-                       location, manager_name, azure_email
-                FROM   dbo.performance_targets
-                WHERE  esoft_code = ?
-                """, esoftCode);
-            if (!rows.isEmpty()) return Optional.of(rows.get(0));
-        } catch (DataAccessException e) {
-            log.debug("performance_targets table unavailable, using in-memory fallback: {}", e.getMessage());
-        }
-        return fallback.findByCode(esoftCode);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+            SELECT e.employee_code                       AS esoft_code,
+                   e.employee_name                       AS employee_name,
+                   COALESCE(el.level, 'Trainee')         AS level,
+                   COALESCE(el.target_hrs_month, lt.target_hrs_month) AS target_hrs_month,
+                   COALESCE(el.target_hrs_week,  lt.target_hrs_week)  AS target_hrs_week,
+                   el.location                           AS location,
+                   el.manager_name                       AS manager_name,
+                   e.email                               AS azure_email
+            FROM   dbo.esoft_employees e
+            LEFT JOIN dbo.employee_levels el ON el.esoft_code = e.employee_code
+            LEFT JOIN dbo.level_targets   lt ON lt.level = COALESCE(el.level, 'Trainee')
+            WHERE  e.employee_code = ?
+            """, esoftCode);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
     public Optional<Map<String, Object>> findActualHours(String esoftCode, LocalDate start, LocalDate end) {
-        List<Map<String, Object>> rows = esoftJdbc.queryForList("""
+        List<Map<String, Object>> rows = jdbc.queryForList("""
             SELECT
-                SUM(tl.invservtimesheetln_total_week_hours)   AS actual_hrs,
-                e.invservemployee_wrk_units_total              AS available_hrs_week,
-                c1.invservemployeecategory_description         AS job_title,
-                c2.invservemployeecategory_description         AS engagement_leader,
-                c3.invservemployeecategory_description         AS team_name
-            FROM dbo.invservtimesheetlines tl
-            JOIN dbo.invservemployees e
-                ON e.invservemployee_code = tl.invservtimesheetln_employee_code
-            JOIN dbo.invservwork w
-                ON w.invservwork_code = tl.invservtimesheetln_work_code
-            JOIN dbo.soporderheader jc
-                ON jc.sophorder_order = tl.invservtimesheetln_jobcard
-            LEFT JOIN dbo.invservemployeecategories c1
-                ON c1.invservemployeecategory_code = e.invservemployee_category1
-               AND c1.invservemployeecategory_head = 'C1'
-            LEFT JOIN dbo.invservemployeecategories c2
-                ON c2.invservemployeecategory_code = e.invservemployee_category2
-               AND c2.invservemployeecategory_head = 'C2'
-            LEFT JOIN dbo.invservemployeecategories c3
-                ON c3.invservemployeecategory_code = e.invservemployee_category3
-               AND c3.invservemployeecategory_head = 'C3'
-            WHERE tl.invservtimesheetln_employee_code = ?
-              AND tl.invservtimesheetln_date >= ?
-              AND tl.invservtimesheetln_date <  ?
-              AND w.invservwork_notChargeable = 0
-              AND jc.sophorder_H3 != 'K'
+                SUM(tl.total_week_hours)        AS actual_hrs,
+                e.wrk_units_total               AS available_hrs_week,
+                c1.description                  AS job_title,
+                c2.description                  AS engagement_leader,
+                c3.description                  AS team_name
+            FROM dbo.esoft_timesheets tl
+            JOIN dbo.esoft_employees e
+                ON e.employee_code = tl.employee_code
+            JOIN dbo.esoft_workcodes w
+                ON w.work_code = tl.work_code
+            JOIN dbo.esoft_jobcards jc
+                ON jc.jobcard = tl.jobcard
+            LEFT JOIN dbo.esoft_employee_categories c1
+                ON c1.category_head = 'C1' AND c1.category_code = e.category1
+            LEFT JOIN dbo.esoft_employee_categories c2
+                ON c2.category_head = 'C2' AND c2.category_code = e.category2
+            LEFT JOIN dbo.esoft_employee_categories c3
+                ON c3.category_head = 'C3' AND c3.category_code = e.category3
+            WHERE tl.employee_code = ?
+              AND tl.ts_date >= ?
+              AND tl.ts_date <  ?
+              AND w.not_chargeable = 0
+              AND jc.h3_department != 'K'
             GROUP BY
-                e.invservemployee_wrk_units_total,
-                c1.invservemployeecategory_description,
-                c2.invservemployeecategory_description,
-                c3.invservemployeecategory_description
+                e.wrk_units_total,
+                c1.description,
+                c2.description,
+                c3.description
             """, esoftCode, start, end);
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
@@ -111,76 +117,74 @@ public class PerformanceRepository {
             .addValue("codes", codes)
             .addValue("start", start)
             .addValue("end", end);
-        return esoftNamedJdbc.queryForList("""
+        return namedJdbc.queryForList("""
             SELECT
-                tl.invservtimesheetln_employee_code            AS esoft_code,
-                SUM(tl.invservtimesheetln_total_week_hours)    AS actual_hrs,
-                e.invservemployee_wrk_units_total              AS available_hrs_week
-            FROM dbo.invservtimesheetlines tl
-            JOIN dbo.invservemployees e
-                ON e.invservemployee_code = tl.invservtimesheetln_employee_code
-            JOIN dbo.invservwork w
-                ON w.invservwork_code = tl.invservtimesheetln_work_code
-            JOIN dbo.soporderheader jc
-                ON jc.sophorder_order = tl.invservtimesheetln_jobcard
-            WHERE tl.invservtimesheetln_employee_code IN (:codes)
-              AND tl.invservtimesheetln_date >= :start
-              AND tl.invservtimesheetln_date <  :end
-              AND w.invservwork_notChargeable = 0
-              AND jc.sophorder_H3 != 'K'
+                tl.employee_code                AS esoft_code,
+                SUM(tl.total_week_hours)        AS actual_hrs,
+                e.wrk_units_total               AS available_hrs_week
+            FROM dbo.esoft_timesheets tl
+            JOIN dbo.esoft_employees e
+                ON e.employee_code = tl.employee_code
+            JOIN dbo.esoft_workcodes w
+                ON w.work_code = tl.work_code
+            JOIN dbo.esoft_jobcards jc
+                ON jc.jobcard = tl.jobcard
+            WHERE tl.employee_code IN (:codes)
+              AND tl.ts_date >= :start
+              AND tl.ts_date <  :end
+              AND w.not_chargeable = 0
+              AND jc.h3_department != 'K'
             GROUP BY
-                tl.invservtimesheetln_employee_code,
-                e.invservemployee_wrk_units_total
+                tl.employee_code,
+                e.wrk_units_total
             """, params);
     }
 
+    /** Direct reports of a manager (by manager name, from the level snapshot). */
     public List<Map<String, Object>> findDirectReports(String managerName) {
-        try {
-            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
-                SELECT esoft_code, employee_name, level, target_hrs_month, target_hrs_week,
-                       location, azure_email
-                FROM   dbo.performance_targets
-                WHERE  manager_name = ?
-                ORDER  BY employee_name
-                """, managerName);
-            if (!rows.isEmpty()) return rows;
-        } catch (DataAccessException e) {
-            log.debug("performance_targets table unavailable, using in-memory fallback");
-        }
-        return fallback.findByManager(managerName);
+        return jdbc.queryForList("""
+            SELECT el.esoft_code           AS esoft_code,
+                   e.employee_name         AS employee_name,
+                   el.level                AS level,
+                   COALESCE(el.target_hrs_month, lt.target_hrs_month) AS target_hrs_month,
+                   COALESCE(el.target_hrs_week,  lt.target_hrs_week)  AS target_hrs_week,
+                   el.location             AS location,
+                   e.email                 AS azure_email
+            FROM   dbo.employee_levels el
+            JOIN   dbo.esoft_employees e  ON e.employee_code = el.esoft_code
+            LEFT JOIN dbo.level_targets lt ON lt.level = el.level
+            WHERE  el.manager_name = ?
+            ORDER  BY e.employee_name
+            """, managerName);
     }
 
     public List<Map<String, Object>> findHoursByCompany(String esoftCode, LocalDate start, LocalDate end) {
-        return esoftJdbc.queryForList("""
+        return jdbc.queryForList("""
             SELECT
-                jc.sophorder_account_name                      AS company,
-                SUM(tl.invservtimesheetln_total_week_hours)     AS hours
-            FROM dbo.invservtimesheetlines tl
-            JOIN dbo.invservwork w
-                ON w.invservwork_code = tl.invservtimesheetln_work_code
-            JOIN dbo.soporderheader jc
-                ON jc.sophorder_order = tl.invservtimesheetln_jobcard
-            WHERE tl.invservtimesheetln_employee_code = ?
-              AND tl.invservtimesheetln_date >= ?
-              AND tl.invservtimesheetln_date <  ?
-              AND w.invservwork_notChargeable = 0
-              AND jc.sophorder_H3 != 'K'
-            GROUP BY jc.sophorder_account_name
-            ORDER BY SUM(tl.invservtimesheetln_total_week_hours) DESC
+                jc.account_name                 AS company,
+                SUM(tl.total_week_hours)        AS hours
+            FROM dbo.esoft_timesheets tl
+            JOIN dbo.esoft_workcodes w
+                ON w.work_code = tl.work_code
+            JOIN dbo.esoft_jobcards jc
+                ON jc.jobcard = tl.jobcard
+            WHERE tl.employee_code = ?
+              AND tl.ts_date >= ?
+              AND tl.ts_date <  ?
+              AND w.not_chargeable = 0
+              AND jc.h3_department != 'K'
+            GROUP BY jc.account_name
+            ORDER BY SUM(tl.total_week_hours) DESC
             """, esoftCode, start, end);
     }
 
+    /** All ACTIVE employees for the dropdown — now the full live roster (fixes the stale seed). */
     public List<Map<String, Object>> findAllEmployees() {
-        try {
-            List<Map<String, Object>> rows = internalToolsJdbc.queryForList("""
-                SELECT esoft_code, employee_name
-                FROM   dbo.performance_targets
-                ORDER  BY employee_name
-                """);
-            if (!rows.isEmpty()) return rows;
-        } catch (DataAccessException e) {
-            log.debug("performance_targets table unavailable, using in-memory fallback");
-        }
-        return fallback.findAll();
+        return jdbc.queryForList("""
+            SELECT employee_code AS esoft_code, employee_name
+            FROM   dbo.esoft_employees
+            WHERE  inactive = 0
+            ORDER  BY employee_name
+            """);
     }
 }

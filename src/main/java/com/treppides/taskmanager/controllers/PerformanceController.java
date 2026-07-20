@@ -1,7 +1,7 @@
 package com.treppides.taskmanager.controllers;
 
 import com.treppides.taskmanager.dto.PerformanceCardDTO;
-import com.treppides.taskmanager.auth.AdminService;
+import com.treppides.taskmanager.auth.RoleService;
 import com.treppides.taskmanager.services.PerformanceService;
 import com.treppides.taskmanager.repositories.PerformanceRepository;
 import org.springframework.http.HttpStatus;
@@ -18,14 +18,14 @@ import java.util.Map;
 public class PerformanceController {
 
     private final PerformanceService service;
-    private final AdminService adminService;
+    private final RoleService roleService;
     private final PerformanceRepository repo;
 
     public PerformanceController(PerformanceService service,
-                                  AdminService adminService,
+                                  RoleService roleService,
                                   PerformanceRepository repo) {
         this.service = service;
-        this.adminService = adminService;
+        this.roleService = roleService;
         this.repo = repo;
     }
 
@@ -84,8 +84,8 @@ public class PerformanceController {
 
     private void requireAdmin(Authentication auth) {
         String email = resolveEmail(auth);
-        if (!adminService.isAdmin(email)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        if (!roleService.isFull(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FULL-tier access required");
         }
     }
 
