@@ -369,15 +369,12 @@ public class TaskService {
     }
 
     private void applyCompletionTiming(Task task, Integer reportedMinutes) {
-        int calculated = (int) computeCalculatedMinutes(task);
-        task.setCalculatedMinutes(calculated);
+        // CompletionMinutes always holds the system-calculated duration.
+        task.setCompletionMinutes((int) computeCalculatedMinutes(task));
 
+        // The employee's reported time (if any) is kept separately and preferred on reports.
         if (reportedMinutes != null && reportedMinutes >= 0) {
-            task.setCompletionMinutes(reportedMinutes);
-            task.setCompletionTimeEdited(reportedMinutes != calculated);
-        } else {
-            task.setCompletionMinutes(calculated);
-            task.setCompletionTimeEdited(false);
+            task.setReportedMinutes(reportedMinutes);
         }
     }
 

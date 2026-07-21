@@ -111,19 +111,18 @@ function formatDuration(minutes) {
         return "-";
     }
 
-    const totalHours = minutes / 60;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
 
-    if (totalHours >= 24) {
-        const days = Math.floor(totalHours / 24);
-        const remHours = Math.round((totalHours % 24) * 10) / 10;
-        return `${days}d ${remHours}h`;
+    if (hours === 0) {
+        return `${mins}m`;
     }
 
-    if (totalHours >= 1) {
-        return `${Math.round(totalHours * 10) / 10}h`;
+    if (mins === 0) {
+        return `${hours}h`;
     }
 
-    return `${minutes}m`;
+    return `${hours}h ${mins}m`;
 }
 
 function escapeHtml(text) {

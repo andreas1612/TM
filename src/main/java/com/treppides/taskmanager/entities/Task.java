@@ -56,20 +56,20 @@ public class Task {
     @Column(name = "IsArchived", nullable = false)
     private Boolean isArchived = false;
 
-    // Duration the system calculated at completion (first In Progress -> Completed), in minutes.
-    @Column(name = "CalculatedMinutes")
-    private Integer calculatedMinutes;
-
-    // Final time-to-complete in minutes (the calculated value unless the user overrode it).
+    // System-calculated time-to-complete in minutes (first In Progress -> Completed).
     @Column(name = "CompletionMinutes")
     private Integer completionMinutes;
 
-    // True when the user changed the value away from the system-calculated one.
-    @Column(name = "CompletionTimeEdited", nullable = false)
-    private Boolean completionTimeEdited = false;
+    // The employee's final reported time-to-complete, in minutes, entered/confirmed in the
+    // completion popup. Null when none was reported. When present, reports show this instead
+    // of the calculated CompletionMinutes.
+    // Stored in the legacy "CompletionTimeEdited" column (widened from bit to int).
+    @Column(name = "CompletionTimeEdited")
+    private Integer reportedMinutes;
 
-    // Running total of user-reported time worked on this task, in minutes,
-    // accumulated from the daily time-log prompts. Null until the first entry.
+    // Running total of time the employee logged day-by-day on this task, in minutes.
+    // Accumulated (+=) from the daily time-log page; each change is recorded in TaskHistory.
+    // Used to prefill the completion popup. Null until the first entry.
     @Column(name = "LoggedMinutes")
     private Integer loggedMinutes;
 
@@ -148,14 +148,11 @@ public class Task {
     public Boolean getIsArchived() { return isArchived; }
     public void setIsArchived(Boolean archived) { isArchived = archived; }
 
-    public Integer getCalculatedMinutes() { return calculatedMinutes; }
-    public void setCalculatedMinutes(Integer calculatedMinutes) { this.calculatedMinutes = calculatedMinutes; }
-
     public Integer getCompletionMinutes() { return completionMinutes; }
     public void setCompletionMinutes(Integer completionMinutes) { this.completionMinutes = completionMinutes; }
 
-    public Boolean getCompletionTimeEdited() { return completionTimeEdited; }
-    public void setCompletionTimeEdited(Boolean completionTimeEdited) { this.completionTimeEdited = completionTimeEdited; }
+    public Integer getReportedMinutes() { return reportedMinutes; }
+    public void setReportedMinutes(Integer reportedMinutes) { this.reportedMinutes = reportedMinutes; }
 
     public Integer getLoggedMinutes() { return loggedMinutes; }
     public void setLoggedMinutes(Integer loggedMinutes) { this.loggedMinutes = loggedMinutes; }

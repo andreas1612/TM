@@ -83,8 +83,8 @@ function renderMyTasks() {
                 <span class="badge ${getStatusClass(task.status)}">
                     ${formatStatus(task.status)}
                 </span>
-                ${(["COMPLETED", "DONE"].includes(task.status) && task.completionMinutes != null)
-                    ? `<div class="muted time-spent">Took ${formatDuration(task.completionMinutes)}${task.completionTimeEdited ? " · edited" : ""}</div>`
+                ${(["COMPLETED", "DONE"].includes(task.status) && (task.reportedMinutes != null || task.completionMinutes != null))
+                    ? `<div class="muted time-spent">Took ${formatDuration(task.reportedMinutes != null ? task.reportedMinutes : task.completionMinutes)}</div>`
                     : ""}
             </td>
             <td>${task.priority || "-"}</td>

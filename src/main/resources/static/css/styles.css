@@ -437,6 +437,27 @@ select {
   color: var(--muted);
 }
 
+.hours-input {
+  width: 110px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] .hours-input {
+  color-scheme: dark;
+}
+
+.hours-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 /* ---------- Forms ---------- */
 
 select {

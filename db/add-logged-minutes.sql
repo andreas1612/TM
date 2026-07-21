@@ -1,6 +1,7 @@
--- Daily time-logging feature: running total of user-reported minutes per task.
--- Accumulated from the 4pm daily time-log prompt; used as the default in the
--- completion popup when present.
+-- Daily time-logging: running total of employee-reported minutes per task.
+-- Accumulated (+=) from the daily time-log page; every change is also recorded in
+-- TaskHistory (field "TimeLogged"). Used to prefill the completion popup.
+-- Safe to run once; additive and nullable.
 IF NOT EXISTS (
     SELECT 1 FROM sys.columns
     WHERE object_id = OBJECT_ID('dbo.Tasks') AND name = 'LoggedMinutes'

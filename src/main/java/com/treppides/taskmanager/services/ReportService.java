@@ -419,7 +419,10 @@ public class ReportService {
 
         Integer minutesToComplete = null;
         if (completed) {
-            if (task.getCompletionMinutes() != null) {
+            if (task.getReportedMinutes() != null) {
+                // Time the employee reported takes precedence when present.
+                minutesToComplete = task.getReportedMinutes();
+            } else if (task.getCompletionMinutes() != null) {
                 minutesToComplete = task.getCompletionMinutes();
             } else if (lastCompleted != null && durationStart != null
                     && !lastCompleted.isBefore(durationStart)) {
