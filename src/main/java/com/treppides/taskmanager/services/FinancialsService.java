@@ -55,8 +55,8 @@ public class FinancialsService {
     }
 
     /** Budget vs Actual per director/EL for a year, with totals. */
-    public Map<String, Object> budgetVsActual(int year) {
-        List<Map<String, Object>> rows = repo.budgetVsActualByDirector(year);
+    public Map<String, Object> budgetVsActual(int year, String company) {
+        List<Map<String, Object>> rows = repo.budgetVsActualByDirector(year, company);
         double totBudget = sum(rows, "budget");
         double totActual = sum(rows, "actual");
         Map<String, Object> out = new LinkedHashMap<>();
@@ -68,19 +68,19 @@ public class FinancialsService {
     }
 
     /** Recoverability: top and bottom N jobs by charged/cost ratio. */
-    public Map<String, Object> recoverability(Integer year, int topN) {
+    public Map<String, Object> recoverability(Integer year, int topN, String company) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("year", year);
-        out.put("top", repo.recoverability(year, topN, false));
-        out.put("bottom", repo.recoverability(year, topN, true));
+        out.put("top", repo.recoverability(year, topN, false, company));
+        out.put("bottom", repo.recoverability(year, topN, true, company));
         return out;
     }
 
     /** Debtors: top N outstanding accounts + firm-wide total. */
-    public Map<String, Object> debtors(int topN) {
+    public Map<String, Object> debtors(int topN, String company) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("totalOutstanding", repo.totalDebtors());
-        out.put("topDebtors", repo.topDebtors(topN));
+        out.put("totalOutstanding", repo.totalDebtors(company));
+        out.put("topDebtors", repo.topDebtors(topN, company));
         return out;
     }
 

@@ -59,27 +59,30 @@ public class FinancialsController {
     @GetMapping("/budget-vs-actual")
     public Map<String, Object> budgetVsActual(
             Authentication auth,
-            @RequestParam(required = false) Integer year) {
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String company) {
         requireBoardOrAdmin(auth);
         int yr = year != null ? year : LocalDate.now().getYear();
-        return service.budgetVsActual(yr);
+        return service.budgetVsActual(yr, company);
     }
 
     @GetMapping("/recoverability")
     public Map<String, Object> recoverability(
             Authentication auth,
             @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String company,
             @RequestParam(required = false, defaultValue = "10") int top) {
         requireBoardOrAdmin(auth);
-        return service.recoverability(year, top);
+        return service.recoverability(year, top, company);
     }
 
     @GetMapping("/debtors")
     public Map<String, Object> debtors(
             Authentication auth,
+            @RequestParam(required = false) String company,
             @RequestParam(required = false, defaultValue = "20") int top) {
         requireBoardOrAdmin(auth);
-        return service.debtors(top);
+        return service.debtors(top, company);
     }
 
     // ---- access gate ----

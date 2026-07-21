@@ -127,7 +127,13 @@ public class FinancialsRepository {
     // The budget's a2 code is the DEPARTMENT letter (B=Audit, P=Tax, A=FRA, K=Admin, ...),
     // which matches the invoice H3 department code; decode via analysis head A2.
 
-    public List<Map<String, Object>> budgetVsActualByDirector(int year) {
+    public List<Map<String, Object>> budgetVsActualByDirector(int year, String company) {
+        List<Object> a = new ArrayList<>();
+        String actualComp = "";
+        if (company != null && !company.isBlank()) { actualComp = " AND comp = ?"; }
+        // Budget table has no comp column (firm-level); only actuals (invoices) filter by company.
+        a.add(year);
+        a.add(year); if (!actualComp.isEmpty()) a.add(company);
         return jdbc.queryForList(
             "SELECT COALESCE(b.code, a.code) AS code,"
           + "       d.description AS name,"
@@ -136,24 +142,26 @@ public class FinancialsRepository {
           + " FROM (SELECT a2_director AS code, -SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END) AS budget"
           + "         FROM dbo.esoft_budget WHERE [year] = ? GROUP BY a2_director) b"
           + " FULL OUTER JOIN (SELECT h3_department AS code, SUM(docval - docvat) AS actual"
-          + "         FROM dbo.esoft_invoices WHERE status = 'P' AND [year] = ? GROUP BY h3_department) a"
+          + "         FROM dbo.esoft_invoices WHERE status = 'P' AND [year] = ?" + actualComp + " GROUP BY h3_department) a"
           + "   ON a.code = b.code"
           + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A2' AND d.comp = 'TRE' AND d.code = COALESCE(b.code, a.code)"
           + " WHERE ISNULL(b.budget, 0) <> 0 OR ISNULL(a.actual, 0) <> 0"
           + " ORDER BY budget DESC",
-            year, year);
+            a.toArray());
     }
 
     // ---- Recoverability (per job card) ------------------------------------------
     // charged = SUM(timesheet total_amount); cost = SUM(employee_cost);
     // recoverability = charged / cost. Job budget + client from esoft_jobcards.
 
-    public List<Map<String, Object>> recoverability(Integer year, int top, boolean bottom) {
+    public List<Map<String, Object>> recoverability(Integer year, int top, boolean bottom, String company) {
         List<Object> a = new ArrayList<>();
         a.add(top);
         String yearClause = "";
+        String compClause = "";
         if (year != null) { yearClause = " AND YEAR(t.ts_date) = ?"; }
-        // args: TOP first, then optional year
+        if (company != null && !company.isBlank()) { compClause = " AND j.comp = ?"; }
+        // args: TOP first, then optional year, then optional company
         StringBuilder sql = new StringBuilder()
             .append("SELECT TOP (?) t.jobcard AS jobcard,")
             .append("       MAX(j.account_name) AS client,")
@@ -167,11 +175,12 @@ public class FinancialsRepository {
             // Real client jobs only: 'JC%' excludes NC*/NP* (non-chargeable / non-productive
             // internal buckets); ABS(...) < 1,000,000 drops garbage eSoft rows (e.g. the ±€50bn
             // fat-finger lines) that no single timesheet line could legitimately hold.
-            .append(" WHERE t.jobcard LIKE 'JC%' AND ABS(t.total_amount) < 1000000").append(yearClause)
+            .append(" WHERE t.jobcard LIKE 'JC%' AND ABS(t.total_amount) < 1000000").append(yearClause).append(compClause)
             .append(" GROUP BY t.jobcard")
             .append(" HAVING SUM(t.employee_cost) > 0")
             .append(" ORDER BY recoverability ").append(bottom ? "ASC" : "DESC");
         if (year != null) a.add(year);
+        if (company != null && !company.isBlank()) a.add(company);
         return jdbc.queryForList(sql.toString(), a.toArray());
     }
 
@@ -180,30 +189,59 @@ public class FinancialsRepository {
     // Invoices key on account_seq; receipts key on payer_acc (same client account id).
     // Positive balance = the client owes us. Matches the .pbix "Balance" column.
 
-    private static final String DEBTOR_CTE =
-            "WITH inv AS (SELECT account_seq, MAX(account_name) AS client, SUM(docval - docvat) AS invoiced"
-          + "   FROM dbo.esoft_invoices WHERE status = 'P' GROUP BY account_seq),"
-          + " rec AS (SELECT payer_acc, SUM(base_amount) AS receipts FROM dbo.esoft_receipts GROUP BY payer_acc)";
+    // ---- Debtors (GL-balance approach) -------------------------------------------
+    // The old receipt-based approach was broken: esoft_receipts only had ~1,700 rows
+    // covering 2023-2024, so 2025-2026 invoices showed 100% outstanding (EUR 29M fake).
+    //
+    // Correct approach: use the GL account balance from esoft_balances for each client
+    // that has posted invoices. Balance = opening + debits - credits for the latest
+    // period. Inter-company Treppides group entities are excluded.
+    //
+    // The balance per client account_seq already reflects payments, credit notes, and
+    // write-offs — it IS the debtor figure.
 
-    public List<Map<String, Object>> topDebtors(int top) {
+    private static final String INTERCO_EXCLUSION =
+        " AND UPPER(a.account_name) NOT LIKE '%TREPPIDES%'"
+      + " AND UPPER(a.account_name) NOT LIKE '%FINANZ%AUDIT%'";
+
+    public List<Map<String, Object>> topDebtors(int top, String company) {
+        List<Object> a = new ArrayList<>();
+        a.add(top);
+        String compClause = "";
+        if (company != null && !company.isBlank()) { compClause = " AND a.comp = ?"; a.add(company); }
         return jdbc.queryForList(
-            DEBTOR_CTE
-          + " SELECT TOP (?) inv.account_seq AS account_seq, inv.client AS client,"
-          + "        inv.invoiced AS invoiced, ISNULL(rec.receipts, 0) AS receipts,"
-          + "        (inv.invoiced - ISNULL(rec.receipts, 0)) AS balance"
-          + " FROM inv LEFT JOIN rec ON TRY_CONVERT(varchar, rec.payer_acc) = TRY_CONVERT(varchar, inv.account_seq)"
-          + " WHERE (inv.invoiced - ISNULL(rec.receipts, 0)) > 0"
-          + " ORDER BY balance DESC",
-            top);
+            "SELECT TOP (?) client, balance FROM ("
+          + "  SELECT a.account_name AS client,"
+          + "         SUM(b.opening_balance + b.debits - b.credits) AS balance"
+          + "  FROM dbo.esoft_balances b"
+          + "  JOIN dbo.esoft_accounts a ON a.account_seq = b.account_seq"
+          + "  WHERE b.account_seq IN (SELECT DISTINCT account_seq FROM dbo.esoft_invoices WHERE status = 'P')"
+          + "    AND b.[year] = YEAR(GETDATE()) AND b.period = MONTH(GETDATE())"
+          + compClause
+          + INTERCO_EXCLUSION
+          + "  GROUP BY a.account_name"
+          + "  HAVING SUM(b.opening_balance + b.debits - b.credits) > 0"
+          + ") t ORDER BY balance DESC",
+            a.toArray());
     }
 
-    /** Firm-wide total outstanding debtors (sum of positive client balances). */
-    public Double totalDebtors() {
+    /** Firm-wide total outstanding debtors (sum of positive client GL balances). */
+    public Double totalDebtors(String company) {
+        List<Object> a = new ArrayList<>();
+        String compClause = "";
+        if (company != null && !company.isBlank()) { compClause = " AND a.comp = ?"; a.add(company); }
         return jdbc.queryForObject(
-            DEBTOR_CTE
-          + " SELECT ISNULL(SUM(CASE WHEN inv.invoiced - ISNULL(rec.receipts, 0) > 0"
-          + "                        THEN inv.invoiced - ISNULL(rec.receipts, 0) ELSE 0 END), 0)"
-          + " FROM inv LEFT JOIN rec ON TRY_CONVERT(varchar, rec.payer_acc) = TRY_CONVERT(varchar, inv.account_seq)",
-            Double.class);
+            "SELECT ISNULL(SUM(balance), 0) FROM ("
+          + "  SELECT SUM(b.opening_balance + b.debits - b.credits) AS balance"
+          + "  FROM dbo.esoft_balances b"
+          + "  JOIN dbo.esoft_accounts a ON a.account_seq = b.account_seq"
+          + "  WHERE b.account_seq IN (SELECT DISTINCT account_seq FROM dbo.esoft_invoices WHERE status = 'P')"
+          + "    AND b.[year] = YEAR(GETDATE()) AND b.period = MONTH(GETDATE())"
+          + compClause
+          + INTERCO_EXCLUSION
+          + "  GROUP BY a.account_name"
+          + "  HAVING SUM(b.opening_balance + b.debits - b.credits) > 0"
+          + ") t",
+            Double.class, a.toArray());
     }
 }
