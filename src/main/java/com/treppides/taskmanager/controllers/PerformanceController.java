@@ -51,6 +51,27 @@ public class PerformanceController {
         return card;
     }
 
+    /**
+     * Manager-scoped drill-down: full performance card for one of the caller's OWN direct
+     * reports. Authorised live against eSoft (category4) — a manager can only open a person
+     * who actually reports to them. Lets non-admin supervisors see report detail without the
+     * admin-only endpoints below.
+     */
+    @GetMapping("/report/{code}")
+    public PerformanceCardDTO reportDetail(
+            Authentication auth,
+            @PathVariable String code,
+            @RequestParam(defaultValue = "month") String period,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        String myCode = repo.findCodeByEmail(resolveEmail(auth))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "No eSoft identity"));
+        if (!service.isReportOf(myCode, code)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your direct report");
+        }
+        return service.buildCardByCode(code, period, year, month);
+    }
+
     /** Admin-only: get performance card for any employee by eSoft code. */
     @GetMapping("/{code}")
     public PerformanceCardDTO byCode(

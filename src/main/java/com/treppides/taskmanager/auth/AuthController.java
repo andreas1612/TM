@@ -91,17 +91,13 @@ public class AuthController {
         String esoftCode = codeOpt.orElse(null);
         result.put("esoftCode", esoftCode);
 
-        // Check if manager (has direct reports in performance_targets)
+        // Check if manager — resolved LIVE from eSoft category4 (supervisor field).
         boolean isManager = false;
         if (esoftCode != null) {
             try {
-                Map<String, Object> target = perfRepo.findTargetByCode(esoftCode).orElse(null);
-                if (target != null) {
-                    String empName = (String) target.get("employee_name");
-                    isManager = empName != null && !perfRepo.findDirectReports(empName).isEmpty();
-                }
+                isManager = !perfRepo.findDirectReportsByCode(esoftCode).isEmpty();
             } catch (Exception ignored) {
-                // performance_targets table may not exist yet
+                // eSoft may be briefly unreachable — treat as non-manager rather than failing /api/me
             }
         }
         result.put("isManager", isManager);

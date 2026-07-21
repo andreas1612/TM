@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,7 +88,7 @@ public class PerformanceService {
         double chargeability   = targetHrsPeriod > 0 ? round2((actualHrs / targetHrsPeriod) * 100) : 0.0;
         double targetPct       = 100.0;
 
-        boolean isManager = !repo.findDirectReports(employeeName).isEmpty();
+        boolean isManager = !repo.findDirectReportsByCode(esoftCode).isEmpty();
 
         List<PerformanceCardDTO.CompanyBreakdownDTO> breakdown = repo.findHoursByCompany(esoftCode, pi.start, pi.end)
             .stream()
@@ -124,16 +125,33 @@ public class PerformanceService {
         return buildTeamFromManagerCard(managerCard, managerCode, period, year, month);
     }
 
+    /** True if {@code reportCode} is one of {@code managerCode}'s live-eSoft direct reports. */
+    public boolean isReportOf(String managerCode, String reportCode) {
+        if (managerCode == null || reportCode == null) return false;
+        return repo.findDirectReportsByCode(managerCode).stream()
+            .anyMatch(r -> reportCode.equals(r.get("esoft_code")));
+    }
+
     private PerformanceCardDTO buildTeamFromManagerCard(PerformanceCardDTO managerCard, String managerCode, String period, Integer year, Integer month) {
         if (!managerCard.isManager()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a manager");
         }
 
-        Map<String, Object> target = repo.findTargetByCode(managerCode)
+        repo.findTargetByCode(managerCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
-        String managerName = (String) target.get("employee_name");
 
-        List<Map<String, Object>> reports = repo.findDirectReports(managerName);
+        // Reports come LIVE from eSoft (category4 supervisor field). Each is enriched with its
+        // datamart target row (level / target hours / location); skip any not yet in the roster.
+        List<Map<String, Object>> reports = new ArrayList<>();
+        for (Map<String, Object> basic : repo.findDirectReportsByCode(managerCode)) {
+            String rcode = (String) basic.get("esoft_code");
+            Optional<Map<String, Object>> t = repo.findTargetByCode(rcode);
+            if (t.isEmpty()) continue;
+            Map<String, Object> merged = new HashMap<>(t.get());
+            merged.put("esoft_code", rcode);
+            merged.put("employee_name", basic.get("employee_name"));   // prefer the live eSoft name
+            reports.add(merged);
+        }
 
         PeriodInfo pi = periodRange(period, year, month);
 

@@ -1,5 +1,9 @@
 package com.treppides.taskmanager.repositories;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -34,12 +38,17 @@ import java.util.Optional;
 @Repository
 public class PerformanceRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(PerformanceRepository.class);
+
     private final JdbcTemplate jdbc;                 // primary datasource = InternalTools (datamart)
     private final NamedParameterJdbcTemplate namedJdbc;
+    private final JdbcTemplate esoftJdbc;            // eSoft LIVE (read-only) — supervisor relationship only
 
-    public PerformanceRepository(JdbcTemplate jdbcTemplate) {
+    public PerformanceRepository(JdbcTemplate jdbcTemplate,
+                                 @Qualifier("esoftJdbcTemplate") JdbcTemplate esoftJdbc) {
         this.jdbc = jdbcTemplate;
         this.namedJdbc = new NamedParameterJdbcTemplate(jdbcTemplate);
+        this.esoftJdbc = esoftJdbc;
     }
 
     /** Resolve an email to an eSoft employee code (active staff only). */
@@ -138,6 +147,66 @@ public class PerformanceRepository {
                 tl.employee_code,
                 e.wrk_units_total
             """, params);
+    }
+
+    /**
+     * Direct reports resolved LIVE from the eSoft database (category4 = the supervisor field),
+     * NOT the nightly datamart and NOT the Excel-seeded manager_name. This is the ONE place in
+     * the performance report that queries eSoft directly, so supervisor changes made in eSoft
+     * take effect immediately.
+     *
+     * Model: a team = everyone carrying the same C4 code; that code's description names the head.
+     * So the reports of the manager with {@code managerCode} are the active employees carrying the
+     * C4 code whose description matches the manager's own name (order/spacing/punctuation-insensitive).
+     * Heads flagged inactive in eSoft still resolve, because we match on the C4 description rather
+     * than the head's active flag. Returns rows shaped {esoft_code, employee_name}.
+     */
+    public List<Map<String, Object>> findDirectReportsByCode(String managerCode) {
+        if (managerCode == null || managerCode.isBlank()) return Collections.emptyList();
+        try {
+            // 1) Manager's own name (include inactive — some heads are flagged inactive in eSoft).
+            List<Map<String, Object>> meRows = esoftJdbc.queryForList(
+                "SELECT invservemployee_name AS name FROM dbo.invservemployees WHERE invservemployee_code = ?",
+                managerCode);
+            if (meRows.isEmpty()) return Collections.emptyList();
+            String myName = normName((String) meRows.get(0).get("name"));
+            if (myName.isEmpty()) return Collections.emptyList();
+
+            // 2) Find the C4 code whose description names me → I am that team's head.
+            List<Map<String, Object>> cats = esoftJdbc.queryForList(
+                "SELECT invservemployeecategory_code AS code, invservemployeecategory_description AS descr " +
+                "FROM dbo.invservemployeecategories WHERE invservemployeecategory_head = 'C4'");
+            String headCode = null;
+            for (Map<String, Object> c : cats) {
+                if (normName((String) c.get("descr")).equals(myName)) {
+                    headCode = (String) c.get("code");
+                    break;
+                }
+            }
+            if (headCode == null) return Collections.emptyList();   // I head no team → not a manager.
+
+            // 3) Active members carrying that C4 code, excluding myself.
+            return esoftJdbc.queryForList(
+                "SELECT invservemployee_code AS esoft_code, invservemployee_name AS employee_name " +
+                "FROM dbo.invservemployees " +
+                "WHERE invservemployee_category4 = ? AND invservemployee_inactive = 0 " +
+                "  AND invservemployee_code <> ? " +
+                "ORDER BY invservemployee_name",
+                headCode, managerCode);
+        } catch (DataAccessException e) {
+            // eSoft unreachable at request time → degrade to "no team" rather than failing the page.
+            log.warn("Live eSoft supervisor lookup failed for {}: {}", managerCode, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /** Normalise a name for order/spacing/punctuation-insensitive matching (tokens sorted, upper-cased). */
+    private static String normName(String n) {
+        if (n == null) return "";
+        String[] toks = n.toUpperCase().replaceAll("[^A-Z ]", " ").trim().split("\\s+");
+        if (toks.length == 1 && toks[0].isEmpty()) return "";
+        java.util.Arrays.sort(toks);
+        return String.join(" ", toks);
     }
 
     /** Direct reports of a manager (by manager name, from the level snapshot). */
