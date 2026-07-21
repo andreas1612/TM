@@ -6,50 +6,47 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-/** S1 test — tierOf + features (plain unit test, no Spring context). */
+/** tierOf + features (plain unit test, no Spring context). */
 class RoleServiceTest {
 
-    // All 15 admins (FULL 8 + STANDARD 7) as they appear in app.admin.emails.
+    // A representative admin set (feeds AdminService → isAdmin). SUPER/FULL come from the
+    // hard-coded sets in RoleService, independent of this fixture.
     private static final String ADMIN_EMAILS =
         "gpanayiotou@treppides.com,syiannaki@treppides.com,msourmeli@treppides.com,"
       + "aparaskeva@treppides.com,apieri@treppides.com,dkatsiolas@treppides.com,"
-      + "lpampaka@treppides.com,etheodorou@treppides.com,"
+      + "lpampaka@treppides.com,etheodorou@treppides.com,lsofokleous@treppides.com,"
       + "stavrostimotheou@treppides.com,kmagou@treppides.com,"
-      + "afotiou@treppides.com,lsofokleous@treppides.com,rlambrou@treppides.com," // HR — STANDARD
-      + "aeleftheriou@treppides.com,exenophontos@treppides.com"; // STANDARD
+      + "afotiou@treppides.com,rlambrou@treppides.com,"
+      + "aeleftheriou@treppides.com,exenophontos@treppides.com";
 
     private RoleService svc() {
         return new RoleService(new AdminService(ADMIN_EMAILS));
     }
 
     @Test
+    void superTierEmailsResolveSuper() {
+        assertEquals(RoleService.Tier.SUPER, svc().tierOf("apieri@treppides.com"));
+        assertEquals(RoleService.Tier.SUPER, svc().tierOf("DKATSIOLAS@treppides.com")); // case-insensitive
+        assertEquals(RoleService.Tier.SUPER, svc().tierOf("lpampaka@treppides.com"));
+        assertEquals(RoleService.Tier.SUPER, svc().tierOf("syiannaki@treppides.com"));
+    }
+
+    @Test
     void fullTierEmailsResolveFull() {
-        assertEquals(RoleService.Tier.FULL, svc().tierOf("apieri@treppides.com"));
-        assertEquals(RoleService.Tier.FULL, svc().tierOf("GPANAYIOTOU@treppides.com")); // case-insensitive
-        assertEquals(RoleService.Tier.FULL, svc().tierOf("lpampaka@treppides.com"));
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("gpanayiotou@treppides.com"));
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("msourmeli@treppides.com"));
         assertEquals(RoleService.Tier.FULL, svc().tierOf("etheodorou@treppides.com"));
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("lsofokleous@treppides.com")); // promoted 2026-07-10
     }
 
     @Test
     void standardAdminsResolveStandard() {
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("stavrostimotheou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("kmagou@treppides.com"));
-        // HR team + others — admins (in app.admin.emails) but not FULL.
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("afotiou@treppides.com"));
-        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("lsofokleous@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("rlambrou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("aeleftheriou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("exenophontos@treppides.com"));
-    }
-
-    @Test
-    void isFullGatesFullOnly() {
-        RoleService s = svc();
-        assertTrue(s.isFull("apieri@treppides.com"));       // FULL
-        assertTrue(s.isFull("lpampaka@treppides.com"));     // FULL (restored)
-        assertFalse(s.isFull("kmagou@treppides.com"));      // STANDARD admin — walled off
-        assertFalse(s.isFull("someone@treppides.com"));     // NONE
-        assertFalse(s.isFull(null));
     }
 
     @Test
@@ -60,11 +57,36 @@ class RoleServiceTest {
     }
 
     @Test
+    void isFullGatesFullAndSuper() {
+        RoleService s = svc();
+        assertTrue(s.isFull("apieri@treppides.com"));        // SUPER also passes FULL gates
+        assertTrue(s.isFull("gpanayiotou@treppides.com"));   // FULL
+        assertFalse(s.isFull("kmagou@treppides.com"));       // STANDARD — walled off
+        assertFalse(s.isFull("someone@treppides.com"));      // NONE
+        assertFalse(s.isFull(null));
+    }
+
+    @Test
+    void isSuperGatesSuperOnly() {
+        RoleService s = svc();
+        assertTrue(s.isSuper("apieri@treppides.com"));         // SUPER
+        assertTrue(s.isSuper("syiannaki@treppides.com"));      // SUPER
+        assertFalse(s.isSuper("gpanayiotou@treppides.com"));   // FULL — no Financials
+        assertFalse(s.isSuper("kmagou@treppides.com"));        // STANDARD
+        assertFalse(s.isSuper(null));
+    }
+
+    @Test
     void featuresMatchTier() {
         RoleService s = svc();
-        assertTrue(s.features(RoleService.Tier.FULL).contains("financials"));
+        // Financials is SUPER-only.
+        assertTrue(s.features(RoleService.Tier.SUPER).contains("financials"));
+        assertTrue(s.features(RoleService.Tier.SUPER).contains("performance"));
+        // FULL sees everything the admin section offers EXCEPT Financials.
+        assertFalse(s.features(RoleService.Tier.FULL).contains("financials"));
+        assertTrue(s.features(RoleService.Tier.FULL).contains("performance"));
         assertTrue(s.features(RoleService.Tier.FULL).contains("simulator"));
-        // STANDARD now sees Performance + Budget KPI (self-scoped), but NOT financials/simulator.
+        // STANDARD: Performance + Budget KPI (self-scoped), no financials/simulator.
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("performance"));
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("budgetkpi"));
         assertFalse(s.features(RoleService.Tier.STANDARD).contains("financials"));
