@@ -37,11 +37,11 @@ class RoleServiceTest {
         assertEquals(RoleService.Tier.FULL, svc().tierOf("msourmeli@treppides.com"));
         assertEquals(RoleService.Tier.FULL, svc().tierOf("etheodorou@treppides.com"));
         assertEquals(RoleService.Tier.FULL, svc().tierOf("lsofokleous@treppides.com")); // promoted 2026-07-10
+        assertEquals(RoleService.Tier.FULL, svc().tierOf("stavrostimotheou@treppides.com")); // promoted 2026-07-21
     }
 
     @Test
     void standardAdminsResolveStandard() {
-        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("stavrostimotheou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("kmagou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("afotiou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("rlambrou@treppides.com"));

@@ -42,7 +42,8 @@ public class RoleService {
         "etheodorou@treppides.com",  // Eleni Theodorou — added 2026-07-06 (full access)
         "lsofokleous@treppides.com", // Loukia Sofokleous — upgraded to FULL 2026-07-10
         "cacheriotou@treppides.com",
-        "avladimerou@treppides.com"
+        "avladimerou@treppides.com",
+        "stavrostimotheou@treppides.com" // Stavros Timotheou — promoted STANDARD→FULL 2026-07-21
     );
 
     // Feature keys align with the hub sidebar sections.
