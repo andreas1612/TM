@@ -76,6 +76,19 @@ public class FinancialsController {
         return service.recoverability(year, top, company);
     }
 
+    @GetMapping("/invoice-list")
+    public Map<String, Object> invoiceList(
+            Authentication auth,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String company,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String el,
+            @RequestParam(required = false, defaultValue = "100") int top) {
+        requireBoardOrAdmin(auth);
+        int yr = year != null ? year : LocalDate.now().getYear();
+        return service.invoiceList(yr, company, department, el, top);
+    }
+
     @GetMapping("/debtors")
     public Map<String, Object> debtors(
             Authentication auth,

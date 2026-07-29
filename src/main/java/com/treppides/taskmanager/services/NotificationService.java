@@ -7,22 +7,62 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import jakarta.mail.internet.MimeMessage;
 import java.util.List;
 
 @Service
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+    private static final String LOGIN_URL = "https://tasks.treppides.com/login.html";
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
+    @Value("${app.support.tech.email:TECHNICAL_TEAM@treppides.com}")
+    private String techSupportEmail;
+
+    @Value("${app.support.it.email:lpampaka@treppides.com}")
+    private String itSupportEmail;
 
     public NotificationService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
+    }
+
+    /**
+     * Sends a tech support ticket email.
+     * Sent via notifications@treppides.com, with the user's email as reply-to.
+     */
+    /**
+     * Sends a support ticket email.
+     * @param type "tech" routes to techSupportEmail, "it" routes to itSupportEmail.
+     */
+    public void sendSupportTicketEmail(String userEmail, String userName, String category, String messageBody, String type) {
+        String targetEmail = "it".equals(type) ? itSupportEmail : techSupportEmail;
+        String subjectPrefix = "it".equals(type) ? "[Hub IT Support]" : "[Hub Tech Support]";
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+            helper.setFrom("notifications@treppides.com", userName + " via Hub");
+            helper.setReplyTo(userEmail);
+            helper.setTo(targetEmail);
+            helper.setSubject(subjectPrefix + " " + category.replaceAll("[\\r\\n]", " ") + " — " + userName);
+            helper.setText(
+                "From: " + userName + " (" + userEmail + ")\n" +
+                "Category: " + category + "\n\n" +
+                messageBody
+            );
+
+            mailSender.send(mimeMessage);
+            log.info("Support ticket ({}) sent from {} to {}", type, userEmail, targetEmail);
+        } catch (Exception e) {
+            log.error("Support ticket email failed from {}: {}", userEmail, e.getMessage(), e);
+            throw new RuntimeException("Failed to send support email", e);
+        }
     }
 
     public void sendTaskAssignedEmail(Employee employee, Task task) {
@@ -41,26 +81,24 @@ public class NotificationService {
 
                 You have been assigned a new task.
 
-                Title:
+                Title: %s
+                Description: %s
+                Priority: %s
+                Due Date: %s
+
+                Log in to view and manage this task:
                 %s
 
-                Description:
-                %s
-
-                Priority:
-                %s
-
-                Due Date:
-                %s
-
-                Please log into the Task Manager system for more details.
+                Task Manager
+                K. Treppides & Co Ltd
                 """
                 .formatted(
                         employee.getFullName(),
                         task.getTitle(),
-                        task.getDescription(),
+                        task.getDescription() != null ? task.getDescription() : "-",
                         task.getPriority(),
-                        task.getDueDate()
+                        task.getDueDate(),
+                        LOGIN_URL
                 )
         );
 
@@ -91,14 +129,13 @@ public class NotificationService {
 
                 This is a reminder that a task assigned to you is approaching its deadline.
 
-                Task Details
-                ----------------------------
                 Title: %s
                 Client: %s
                 Priority: %s
                 Due Date: %s
 
-                Please review the task and ensure any required actions are completed before the deadline.
+                Please log in and ensure any required actions are completed before the deadline:
+                %s
 
                 Task Manager
                 K. Treppides & Co Ltd
@@ -108,7 +145,8 @@ public class NotificationService {
                         task.getTitle(),
                         task.getClient() != null ? task.getClient() : "-",
                         task.getPriority(),
-                        task.getDueDate()
+                        task.getDueDate(),
+                        LOGIN_URL
                 )
         );
 
@@ -139,8 +177,6 @@ public class NotificationService {
             taskLines.append("  - ").append(safeTitle).append("\n");
         }
 
-        String logUrl = baseUrl + "/log-time.html";
-
         message.setText(
                 """
                 Dear %s,
@@ -149,7 +185,7 @@ public class NotificationService {
                 your in-progress tasks:
 
                 %s
-                Log your hours here:
+                Log in to record your hours:
                 %s
 
                 Task Manager
@@ -158,7 +194,7 @@ public class NotificationService {
                 .formatted(
                         employee.getFullName(),
                         taskLines.toString(),
-                        logUrl
+                        LOGIN_URL
                 )
         );
 
@@ -174,27 +210,32 @@ public class NotificationService {
      * Start-of-day digest: a quick nudge with how many of the user's tasks are due
      * within the next 48 hours and a direct link to their My Tasks page.
      */
-    public void sendDailyTaskDigestEmail(Employee employee, int dueSoonCount, int totalActive) {
+    public void sendDailyTaskDigestEmail(Employee employee, int dueSoonCount, int overdueCount, int totalActive) {
         SimpleMailMessage message = new SimpleMailMessage();
 
         message.setTo(employee.getEmail());
         message.setFrom("notifications@treppides.com");
         message.setSubject("Task Manager - Your tasks for today");
 
-        String dueSoonLine = dueSoonCount == 1
-                ? "You have 1 task due within the next 48 hours."
-                : "You have " + dueSoonCount + " tasks due within the next 48 hours.";
+        String overdueLine = overdueCount == 0
+                ? ""
+                : (overdueCount == 1
+                        ? "You have 1 overdue task.\n"
+                        : "You have " + overdueCount + " overdue tasks.\n");
 
-        String myTasksUrl = baseUrl + "/my-tasks.html";
+        String dueSoonLine = dueSoonCount == 0
+                ? ""
+                : (dueSoonCount == 1
+                        ? "You have 1 task due within the next 48 hours.\n"
+                        : "You have " + dueSoonCount + " tasks due within the next 48 hours.\n");
 
         message.setText(
                 """
                 Good morning %s,
 
-                %s
-                You have %d active task(s) in total.
+                %s%sYou have %d active task(s) in total.
 
-                View and manage them in My Tasks:
+                Log in to view and manage your tasks:
                 %s
 
                 Task Manager
@@ -202,9 +243,10 @@ public class NotificationService {
                 """
                 .formatted(
                         employee.getFullName(),
+                        overdueLine,
                         dueSoonLine,
                         totalActive,
-                        myTasksUrl
+                        LOGIN_URL
                 )
         );
 

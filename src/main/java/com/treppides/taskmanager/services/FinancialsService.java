@@ -76,6 +76,14 @@ public class FinancialsService {
         return out;
     }
 
+    /** Individual invoice rows for drill-down tables. */
+    public Map<String, Object> invoiceList(int year, String company, String dept, String el, int topN) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("year", year);
+        out.put("invoices", repo.invoiceList(year, company, dept, el, topN));
+        return out;
+    }
+
     /** Debtors: top N outstanding accounts + firm-wide total. */
     public Map<String, Object> debtors(int topN, String company) {
         Map<String, Object> out = new LinkedHashMap<>();

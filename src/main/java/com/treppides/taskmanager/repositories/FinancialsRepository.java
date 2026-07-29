@@ -27,6 +27,20 @@ public class FinancialsRepository {
 
     private static final String NET = "SUM(i.docval - i.docvat)";
 
+    // Department grouping: merge related eSoft department codes into business divisions.
+    // L=Accounting CIFs + Z=Payroll → FCR | O=Internal Audit + J=Licensing + H=Compliance + E=Risk → ICAS
+    // D=VAT + P=Tax → VAT and TAX | everything else keeps its own name.
+    private static final String DEPT_GROUP_CODE =
+        "CASE WHEN %s IN ('L','Z') THEN 'FCR'"
+      + " WHEN %s IN ('O','J','H','E') THEN 'ICAS'"
+      + " WHEN %s IN ('D','P') THEN 'VAT_TAX'"
+      + " ELSE %s END";
+
+    /** Maps a raw department column to the grouped code (FCR / ICAS / VAT_TAX / original). */
+    private static String deptGroupCode(String col) {
+        return String.format(DEPT_GROUP_CODE, col, col, col, col);
+    }
+
     /** Posted-invoice WHERE clause; year/company/department(H3)/el(H4) all optional → enables cross-filtering. */
     private static String filter(Integer year, String company, String dept, String el, List<Object> args) {
         StringBuilder w = new StringBuilder(" WHERE i.status = 'P'");
@@ -47,32 +61,43 @@ public class FinancialsRepository {
           + " GROUP BY i.[year] ORDER BY i.[year] DESC", a.toArray());
     }
 
-    /** Net revenue per department (H3 → analysis head A2) for a year. */
+    /** Net revenue per department group (merged: FCR, ICAS, VAT and TAX) for a year.
+     *  Excludes invoices with NULL h3_department (subsidiary companies with no analysis codes)
+     *  so only classified revenue appears in the breakdown — totals still include everything. */
     public List<Map<String, Object>> revenueByDepartment(int year, String company, String dept, String el) {
         List<Object> a = new ArrayList<>();
         String w = filter(year, company, dept, el, a);
+        String grpCode = deptGroupCode("i.h3_department");
+        // Subquery: map raw dept code → group + keep analysis name; outer groups by mapped code.
         return jdbc.queryForList(
-            "SELECT i.h3_department AS code,"
-          + " MAX(d.description) AS name,"
-          + " " + NET + " AS net"
-          + " FROM dbo.esoft_invoices i"
-          + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A2' AND d.comp = i.comp AND d.code = i.h3_department"
-          + w
-          + " GROUP BY i.h3_department ORDER BY net DESC", a.toArray());
+            "SELECT code,"
+          + " CASE WHEN code = 'FCR' THEN 'FCR'"
+          + "      WHEN code = 'ICAS' THEN 'ICAS'"
+          + "      WHEN code = 'VAT_TAX' THEN 'VAT and TAX'"
+          + "      ELSE MAX(raw_name) END AS name,"
+          + " SUM(net) AS net"
+          + " FROM (SELECT " + grpCode + " AS code, d.description AS raw_name,"
+          + "   (i.docval - i.docvat) AS net"
+          + "   FROM dbo.esoft_invoices i"
+          + "   LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A2' AND d.comp = i.comp AND d.code = i.h3_department"
+          + w + " AND i.h3_department IS NOT NULL) sub"
+          + " GROUP BY code ORDER BY net DESC", a.toArray());
     }
 
-    /** Net revenue per Engagement Leader (H4 → analysis head A3) for a year. */
+    /** Net revenue per Engagement Leader (H2 → analysis head A1 = Director/Partner).
+     *  Excludes invoices with NULL h2_director (subsidiary companies with no analysis codes)
+     *  so only classified revenue appears in the breakdown — totals still include everything. */
     public List<Map<String, Object>> revenueByEl(int year, String company, String dept, String el) {
         List<Object> a = new ArrayList<>();
         String w = filter(year, company, dept, el, a);
         return jdbc.queryForList(
-            "SELECT i.h4_el AS code,"
+            "SELECT i.h2_director AS code,"
           + " MAX(d.description) AS name,"
           + " " + NET + " AS net"
           + " FROM dbo.esoft_invoices i"
-          + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A3' AND d.comp = i.comp AND d.code = i.h4_el"
-          + w
-          + " GROUP BY i.h4_el ORDER BY net DESC", a.toArray());
+          + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A1' AND d.comp = i.comp AND d.code = i.h2_director"
+          + w + " AND i.h2_director IS NOT NULL"
+          + " GROUP BY i.h2_director ORDER BY net DESC", a.toArray());
     }
 
     /** Net revenue per month (period 1-12) for a year. */
@@ -132,22 +157,56 @@ public class FinancialsRepository {
         String actualComp = "";
         if (company != null && !company.isBlank()) { actualComp = " AND comp = ?"; }
         // Budget table has no comp column (firm-level); only actuals (invoices) filter by company.
+        // Both sides group by the department mapping so FCR/ICAS/VAT_TAX aggregate correctly.
+        String budGrp = deptGroupCode("a2_director");
+        String actGrp = deptGroupCode("h3_department");
+        // Name: merged groups get a fixed label; un-merged fall back to analysis_codes.
+        String nameExpr = "CASE WHEN COALESCE(b.code, a.code) = 'FCR' THEN 'FCR'"
+                        + " WHEN COALESCE(b.code, a.code) = 'ICAS' THEN 'ICAS'"
+                        + " WHEN COALESCE(b.code, a.code) = 'VAT_TAX' THEN 'VAT and TAX'"
+                        + " ELSE d.description END";
         a.add(year);
         a.add(year); if (!actualComp.isEmpty()) a.add(company);
         return jdbc.queryForList(
             "SELECT COALESCE(b.code, a.code) AS code,"
-          + "       d.description AS name,"
+          + "       " + nameExpr + " AS name,"
           + "       ISNULL(b.budget, 0) AS budget,"
           + "       ISNULL(a.actual, 0) AS actual"
-          + " FROM (SELECT a2_director AS code, -SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END) AS budget"
-          + "         FROM dbo.esoft_budget WHERE [year] = ? GROUP BY a2_director) b"
-          + " FULL OUTER JOIN (SELECT h3_department AS code, SUM(docval - docvat) AS actual"
-          + "         FROM dbo.esoft_invoices WHERE status = 'P' AND [year] = ?" + actualComp + " GROUP BY h3_department) a"
+          + " FROM (SELECT " + budGrp + " AS code, -SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END) AS budget"
+          + "         FROM dbo.esoft_budget WHERE [year] = ? GROUP BY " + budGrp + ") b"
+          + " FULL OUTER JOIN (SELECT " + actGrp + " AS code, SUM(docval - docvat) AS actual"
+          + "         FROM dbo.esoft_invoices WHERE status = 'P' AND [year] = ?" + actualComp + " GROUP BY " + actGrp + ") a"
           + "   ON a.code = b.code"
           + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A2' AND d.comp = 'TRE' AND d.code = COALESCE(b.code, a.code)"
           + " WHERE ISNULL(b.budget, 0) <> 0 OR ISNULL(a.actual, 0) <> 0"
           + " ORDER BY budget DESC",
             a.toArray());
+    }
+
+    // ---- Invoice listing (drill-down data) ----------------------------------------
+    // Returns individual posted invoice rows for the UI detail table.
+    // Department group mapping applied so rows show the merged group name.
+
+    public List<Map<String, Object>> invoiceList(int year, String company, String dept, String el, int top) {
+        List<Object> a = new ArrayList<>();
+        a.add(top);
+        String w = filter(year, company, dept, el, a);
+        String grpCode = deptGroupCode("i.h3_department");
+        String grpName = "CASE WHEN i.h3_department IN ('L','Z') THEN 'FCR'"
+                       + " WHEN i.h3_department IN ('O','J','H','E') THEN 'ICAS'"
+                       + " WHEN i.h3_department IN ('D','P') THEN 'VAT and TAX'"
+                       + " ELSE d.description END";
+        return jdbc.queryForList(
+            "SELECT TOP (?) i.docno, i.account_name AS client, i.comp AS company,"
+          + " i.docdate, i.period AS month, i.[year],"
+          + " i.docval AS gross, i.docvat AS vat, (i.docval - i.docvat) AS net,"
+          + " i.doctype, " + grpCode + " AS deptCode, " + grpName + " AS department,"
+          + " i.h4_el AS elCode, el.description AS elName, i.[user]"
+          + " FROM dbo.esoft_invoices i"
+          + " LEFT JOIN dbo.esoft_analysis_codes d ON d.head = 'A2' AND d.comp = i.comp AND d.code = i.h3_department"
+          + " LEFT JOIN dbo.esoft_analysis_codes el ON el.head = 'A3' AND el.comp = i.comp AND el.code = i.h4_el"
+          + w
+          + " ORDER BY i.docdate DESC", a.toArray());
     }
 
     // ---- Recoverability (per job card) ------------------------------------------

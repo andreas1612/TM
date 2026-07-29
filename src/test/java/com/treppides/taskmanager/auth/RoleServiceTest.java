@@ -20,7 +20,7 @@ class RoleServiceTest {
       + "aeleftheriou@treppides.com,exenophontos@treppides.com";
 
     private RoleService svc() {
-        return new RoleService(new AdminService(ADMIN_EMAILS));
+        return new RoleService(new AdminService(ADMIN_EMAILS), new HrService(""));
     }
 
     @Test
@@ -29,6 +29,12 @@ class RoleServiceTest {
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("DKATSIOLAS@treppides.com")); // case-insensitive
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("lpampaka@treppides.com"));
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("syiannaki@treppides.com"));
+    }
+
+    @Test
+    void supervisorTierEmailsResolveSupervisor() {
+        assertEquals(RoleService.Tier.SUPERVISOR, svc().tierOf("kmagou@treppides.com"));
+        assertEquals(RoleService.Tier.SUPERVISOR, svc().tierOf("ekasieri@treppides.com"));
     }
 
     @Test
@@ -42,7 +48,6 @@ class RoleServiceTest {
 
     @Test
     void standardAdminsResolveStandard() {
-        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("kmagou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("afotiou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("rlambrou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("aeleftheriou@treppides.com"));
@@ -57,11 +62,12 @@ class RoleServiceTest {
     }
 
     @Test
-    void isFullGatesFullAndSuper() {
+    void isFullGatesFullSupervisorAndSuper() {
         RoleService s = svc();
         assertTrue(s.isFull("apieri@treppides.com"));        // SUPER also passes FULL gates
         assertTrue(s.isFull("gpanayiotou@treppides.com"));   // FULL
-        assertFalse(s.isFull("kmagou@treppides.com"));       // STANDARD — walled off
+        assertTrue(s.isFull("etheodorou@treppides.com"));    // FULL
+        assertFalse(s.isFull("kmagou@treppides.com"));       // SUPERVISOR — walled off
         assertFalse(s.isFull("someone@treppides.com"));      // NONE
         assertFalse(s.isFull(null));
     }
@@ -71,7 +77,7 @@ class RoleServiceTest {
         RoleService s = svc();
         assertTrue(s.isSuper("apieri@treppides.com"));         // SUPER
         assertTrue(s.isSuper("syiannaki@treppides.com"));      // SUPER
-        assertFalse(s.isSuper("gpanayiotou@treppides.com"));   // FULL — no Financials
+        assertFalse(s.isSuper("gpanayiotou@treppides.com"));   // SUPERVISOR — no Financials
         assertFalse(s.isSuper("kmagou@treppides.com"));        // STANDARD
         assertFalse(s.isSuper(null));
     }
@@ -79,18 +85,27 @@ class RoleServiceTest {
     @Test
     void featuresMatchTier() {
         RoleService s = svc();
-        // Financials is SUPER-only.
+        // SUPER = everything including Financials + CRM.
         assertTrue(s.features(RoleService.Tier.SUPER).contains("financials"));
+        assertTrue(s.features(RoleService.Tier.SUPER).contains("crm"));
         assertTrue(s.features(RoleService.Tier.SUPER).contains("performance"));
-        // FULL sees everything the admin section offers EXCEPT Financials.
+        // SUPERVISOR = STANDARD + CRM.
+        assertTrue(s.features(RoleService.Tier.SUPERVISOR).contains("crm"));
+        assertTrue(s.features(RoleService.Tier.SUPERVISOR).contains("performance"));
+        assertTrue(s.features(RoleService.Tier.SUPERVISOR).contains("budgetkpi"));
+        assertFalse(s.features(RoleService.Tier.SUPERVISOR).contains("simulator"));
+        assertFalse(s.features(RoleService.Tier.SUPERVISOR).contains("financials"));
+        // FULL sees everything EXCEPT Financials.
         assertFalse(s.features(RoleService.Tier.FULL).contains("financials"));
+        assertTrue(s.features(RoleService.Tier.FULL).contains("crm"));
         assertTrue(s.features(RoleService.Tier.FULL).contains("performance"));
         assertTrue(s.features(RoleService.Tier.FULL).contains("simulator"));
-        // STANDARD: Performance + Budget KPI (self-scoped), no financials/simulator.
+        // STANDARD: Performance + Budget KPI (self-scoped), no financials/simulator/crm.
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("performance"));
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("budgetkpi"));
         assertFalse(s.features(RoleService.Tier.STANDARD).contains("financials"));
         assertFalse(s.features(RoleService.Tier.STANDARD).contains("simulator"));
+        assertFalse(s.features(RoleService.Tier.STANDARD).contains("crm"));
         assertTrue(s.features(RoleService.Tier.STANDARD).contains("kb"));
         assertTrue(s.features(RoleService.Tier.NONE).isEmpty());
     }

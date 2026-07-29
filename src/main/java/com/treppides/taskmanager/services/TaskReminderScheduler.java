@@ -34,7 +34,7 @@ public class TaskReminderScheduler {
         this.notificationService = notificationService;
     }
 
-    @Scheduled(cron = "0 0 8 * * *")
+    @Scheduled(cron = "0 0 8 * * MON-FRI", zone = "Europe/Nicosia")
     public void checkUpComingDueTasks() {
 
         log.info("Scheduler running...");
@@ -81,29 +81,29 @@ public class TaskReminderScheduler {
                 return "HIGH_5_WORKING_DAYS";
             }
 
-            if (today.equals(dueDate.minusDays(3))) {
+            if (today.equals(shiftToPreviousWorkingDay(dueDate.minusDays(3)))) {
                 return "HIGH_3_DAYS";
             }
 
-            if (today.equals(dueDate.minusDays(1))) {
+            if (today.equals(shiftToPreviousWorkingDay(dueDate.minusDays(1)))) {
                 return "HIGH_1_DAY";
             }
         }
 
         if ("MEDIUM".equals(priority)) {
 
-            if (today.equals(dueDate.minusDays(3))) {
+            if (today.equals(shiftToPreviousWorkingDay(dueDate.minusDays(3)))) {
                 return "MEDIUM_3_DAYS";
             }
 
-            if (today.equals(dueDate.minusDays(1))) {
+            if (today.equals(shiftToPreviousWorkingDay(dueDate.minusDays(1)))) {
                 return "MEDIUM_1_DAY";
             }
         }
 
         if ("LOW".equals(priority)) {
 
-            if (today.equals(dueDate.minusDays(1))) {
+            if (today.equals(shiftToPreviousWorkingDay(dueDate.minusDays(1)))) {
                 return "LOW_1_DAY";
             }
         }
@@ -132,11 +132,36 @@ public class TaskReminderScheduler {
         return result;
     }
 
+    private LocalDate addWorkingDays(LocalDate date, int workingDays) {
+
+        LocalDate result = date;
+        int remaining = workingDays;
+
+        while (remaining > 0) {
+            result = result.plusDays(1);
+            if (result.getDayOfWeek().getValue() < 6) {
+                remaining--;
+            }
+        }
+
+        return result;
+    }
+
+    /** If the date lands on a weekend, move it back to the preceding Friday. */
+    private LocalDate shiftToPreviousWorkingDay(LocalDate date) {
+
+        LocalDate result = date;
+        while (result.getDayOfWeek().getValue() >= 6) {
+            result = result.minusDays(1);
+        }
+        return result;
+    }
+
     /**
      * At 8am on weekdays, send each user a start-of-day digest: how many of their
      * tasks are due within the next 48 hours, with a link to their My Tasks page.
      */
-    @Scheduled(cron = "0 0 8 * * MON-FRI")
+    @Scheduled(cron = "0 0 8 * * MON-FRI", zone = "Europe/Nicosia")
     public void sendDailyTaskDigest() {
 
         log.info("Daily task digest scheduler running...");
@@ -147,16 +172,21 @@ public class TaskReminderScheduler {
                 );
 
         LocalDate today = LocalDate.now();
-        LocalDate horizon = today.plusDays(2);
+        // Look ahead two WORKING days so Friday's digest reaches Monday's deadlines
+        // (there is no weekend email to catch them).
+        LocalDate horizon = addWorkingDays(today, 2);
 
         Map<String, Employee> employeesByEmail = new LinkedHashMap<>();
         Map<String, Integer> dueSoonByEmail = new LinkedHashMap<>();
+        Map<String, Integer> overdueByEmail = new LinkedHashMap<>();
         Map<String, Integer> totalByEmail = new LinkedHashMap<>();
 
         for (Task task : activeTasks) {
             boolean dueSoon = task.getDueDate() != null
                     && !task.getDueDate().isBefore(today)
                     && !task.getDueDate().isAfter(horizon);
+            boolean overdue = task.getDueDate() != null
+                    && task.getDueDate().isBefore(today);
 
             List<TaskAssignment> assignments =
                     taskAssignmentRepository.findByTask_TaskId(task.getTaskId());
@@ -173,17 +203,25 @@ public class TaskReminderScheduler {
                 if (dueSoon) {
                     dueSoonByEmail.merge(email, 1, Integer::sum);
                 }
+                if (overdue) {
+                    overdueByEmail.merge(email, 1, Integer::sum);
+                }
             }
         }
 
         for (String email : employeesByEmail.keySet()) {
+            // Everyone here has at least one active task (people with none never enter
+            // the map), so send the digest regardless of the due-soon/overdue counts.
+            int dueSoon = dueSoonByEmail.getOrDefault(email, 0);
+            int overdue = overdueByEmail.getOrDefault(email, 0);
             notificationService.sendDailyTaskDigestEmail(
                     employeesByEmail.get(email),
-                    dueSoonByEmail.getOrDefault(email, 0),
+                    dueSoon,
+                    overdue,
                     totalByEmail.getOrDefault(email, 0)
             );
-            log.info("Daily task digest queued for: {} ({} due within 48h)",
-                    email, dueSoonByEmail.getOrDefault(email, 0));
+            log.info("Daily task digest queued for: {} ({} due within 48h, {} overdue)",
+                    email, dueSoon, overdue);
         }
     }
 
@@ -191,7 +229,7 @@ public class TaskReminderScheduler {
      * At 4pm on weekdays, prompt each user with in-progress tasks to log the time
      * they spent today. One email per user, listing their in-progress tasks.
      */
-    @Scheduled(cron = "0 0 16 * * MON-FRI")
+    @Scheduled(cron = "0 0 16 * * MON-FRI", zone = "Europe/Nicosia")
     public void sendDailyTimeLogReminders() {
 
         log.info("Daily time-log reminder scheduler running...");

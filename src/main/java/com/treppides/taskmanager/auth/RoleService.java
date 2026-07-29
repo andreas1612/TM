@@ -12,15 +12,16 @@ import java.util.Set;
  * Never scatter role checks around the code — always ask this service.
  *
  * Tiers:
- *   SUPER    — FULL + the Financials reports (a small, hand-picked set).
- *   FULL     — sees everything EXCEPT Financials, incl. hidden/WIP features + the simulator.
- *   STANDARD — an admin who sees only the released base hub (no admin/reporting section).
- *   NONE     — not eligible (Access Restricted).
+ *   SUPER      — FULL + Financials + CRM (a small, hand-picked set).
+ *   SUPERVISOR — STANDARD + CRM.
+ *   FULL       — sees everything EXCEPT Financials, incl. CRM and simulator.
+ *   STANDARD   — an admin who sees only the released base hub (no admin/reporting section).
+ *   NONE       — not eligible (Access Restricted).
  */
 @Service
 public class RoleService {
 
-    public enum Tier { SUPER, FULL, STANDARD, NONE }
+    public enum Tier { SUPER, SUPERVISOR, FULL, STANDARD, NONE }
 
     /** SUPER-tier emails — the ONLY people who see Financials. Superset of FULL. */
     private static final Set<String> SUPER_EMAILS = Set.of(
@@ -28,6 +29,20 @@ public class RoleService {
         "dkatsiolas@treppides.com",   // Daniel Katsiolas
         "lpampaka@treppides.com",     // Lygia Pampaka
         "syiannaki@treppides.com"     // Stelios Yiannaki
+    );
+
+    /** SUPERVISOR-tier emails — STANDARD + CRM. */
+    private static final Set<String> SUPERVISOR_EMAILS = Set.of(
+        "kmagou@treppides.com",       // Korina Magou
+        "ekasieri@treppides.com",     // Eleni Kasieri
+        "skyprianou@treppides.com",   // Stefanos Kyprianou — added 2026-07-29
+        "skaramouzas@treppides.com",  // Symeon Karamouzas — added 2026-07-29 (was STANDARD)
+        "egeorgiou@treppides.com",    // Elpida Georgiou — added 2026-07-29
+        "kmosfili@treppides.com",     // Katerina Mosfili — added 2026-07-29
+        "makyriacou@treppides.com",   // Marios Kyriakou — added 2026-07-29
+        "edalitou@treppides.com",     // Evelyn Dalitou — added 2026-07-29
+        "aandreou@treppides.com",     // Andreas Andreou — added 2026-07-29
+        "khadjiefrem@treppides.com"   // Kypros Hadjiefrem — added 2026-07-29
     );
 
     /** FULL-tier emails (hard-coded for now; migrate to EMPLOYEES.hub_role later). */
@@ -43,7 +58,9 @@ public class RoleService {
         "lsofokleous@treppides.com", // Loukia Sofokleous — upgraded to FULL 2026-07-10
         "cacheriotou@treppides.com",
         "avladimerou@treppides.com",
-        "stavrostimotheou@treppides.com" // Stavros Timotheou — promoted STANDARD→FULL 2026-07-21
+        "stavrostimotheou@treppides.com", // Stavros Timotheou — promoted STANDARD→FULL 2026-07-21
+        "czampa@treppides.com",           // Christiana Zampa — added 2026-07-23
+        "kherakleous@treppides.com"       // K. Herakleous — added 2026-07-27
     );
 
     // Feature keys align with the hub sidebar sections.
@@ -55,25 +72,32 @@ public class RoleService {
         "home", "kb", "staff", "tools", "support",
         "performance", "budgetkpi");
     // FULL = everything the admin section offers EXCEPT Financials.
-    private static final Set<String> FULL = Set.of(
+    private static final Set<String> FULL_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
-        "performance", "budgetkpi", "simulator");
-    // SUPER = FULL + Financials (the only tier that sees Financials).
+        "performance", "budgetkpi", "crm", "simulator");
+    // SUPERVISOR = STANDARD + CRM.
+    private static final Set<String> SUPERVISOR_FEATURES = Set.of(
+        "home", "kb", "staff", "tools", "support",
+        "performance", "budgetkpi", "crm");
+    // SUPER = FULL + Financials + CRM.
     private static final Set<String> SUPER_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
-        "performance", "budgetkpi", "financials", "simulator");
+        "performance", "budgetkpi", "crm", "financials", "simulator");
 
     private final AdminService adminService;
+    private final HrService hrService;
 
-    public RoleService(AdminService adminService) {
+    public RoleService(AdminService adminService, HrService hrService) {
         this.adminService = adminService;
+        this.hrService = hrService;
     }
 
-    /** Resolve a person's tier. SUPER first, then FULL, then admins are STANDARD; non-admins NONE. */
+    /** Resolve a person's tier. SUPER → SUPERVISOR → FULL → STANDARD → NONE. */
     public Tier tierOf(String email) {
         if (email == null || email.isBlank()) return Tier.NONE;
         String e = email.toLowerCase();
         if (SUPER_EMAILS.contains(e)) return Tier.SUPER;
+        if (SUPERVISOR_EMAILS.contains(e)) return Tier.SUPERVISOR;
         if (FULL_EMAILS.contains(e)) return Tier.FULL;
         if (adminService.isAdmin(e)) return Tier.STANDARD;
         return Tier.NONE;
@@ -81,8 +105,7 @@ public class RoleService {
 
     /**
      * True for FULL and SUPER users. This is the gate for all-employee Performance /
-     * Budget KPI (view anyone). STANDARD admins fail it — being in app.admin.emails
-     * makes you an admin, NOT necessarily FULL.
+     * Budget KPI (view anyone). SUPERVISOR and STANDARD see self-scoped only.
      */
     public boolean isFull(String email) {
         Tier t = tierOf(email);
@@ -94,11 +117,22 @@ public class RoleService {
         return tierOf(email) == Tier.SUPER;
     }
 
+    /**
+     * True for users who should be global administrators in Chamilo (SUPER-tier + HR team).
+     * Everyone else gets STUDENT. Used by the authorization server token customizer.
+     */
+    public boolean isChamAdmin(String email) {
+        if (email == null || email.isBlank()) return false;
+        String e = email.toLowerCase();
+        return SUPER_EMAILS.contains(e) || hrService.isHr(e);
+    }
+
     /** The set of hub sections a tier may see. */
     public Set<String> features(Tier tier) {
         return switch (tier) {
             case SUPER -> SUPER_FEATURES;
-            case FULL -> FULL;
+            case SUPERVISOR -> SUPERVISOR_FEATURES;
+            case FULL -> FULL_FEATURES;
             case STANDARD -> STANDARD_FEATURES;
             case NONE -> Set.of();
         };

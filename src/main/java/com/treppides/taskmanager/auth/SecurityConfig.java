@@ -4,6 +4,7 @@ import com.treppides.taskmanager.services.DatabaseOidcUserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,6 +29,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)   // after ChamAuthServerConfig's chain (@Order 1)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -48,7 +50,7 @@ public class SecurityConfig {
             )
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/login.html")
-                .defaultSuccessUrl("/dashboard.html", true)
+                .defaultSuccessUrl("/dashboard.html", false)
                 .userInfoEndpoint(userInfo -> userInfo
                     .oidcUserService(databaseOidcUserService)
                 )

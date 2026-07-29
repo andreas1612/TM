@@ -1,0 +1,170 @@
+/* ============================================================
+   css/tour.css
+   On-site guided tour (coachmark overlay) for Task Manager.
+   Paired with js/tour.js. Uses the app's design tokens so it
+   matches the rest of the UI in both light and dark themes.
+   ============================================================ */
+
+/* ---- Header "Tutorial" button ---- */
+.tm-tour-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.tm-tour-btn:hover {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.tm-tour-btn svg { flex-shrink: 0; }
+
+/* ---- Backdrop + spotlight ---- */
+.tm-tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+}
+.tm-tour-backdrop.open { display: block; }
+
+/* The "hole" is the spotlight: a huge box-shadow dims everything around
+   the highlighted element without cutting a real hole. */
+.tm-tour-hole {
+  position: fixed;
+  display: none;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(9, 13, 20, 0.66);
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  pointer-events: none;
+  transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+/* Welcome / final steps have no anchor — dim the whole screen instead. */
+.tm-tour-backdrop.tm-tour-dim { background: rgba(9, 13, 20, 0.66); }
+
+/* ---- Tooltip card ---- */
+.tm-tour-tip {
+  position: fixed;
+  z-index: 2001;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px var(--shadow);
+  padding: 16px 18px 14px;
+  transition: left 0.2s ease, top 0.2s ease;
+}
+.tm-tour-progress {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.tm-tour-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tm-tour-body {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.tm-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tm-tour-nav {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---- Tour buttons (self-contained so the overlay doesn't depend on
+        any global button classes) ---- */
+.tm-tour-primary,
+.tm-tour-secondary,
+.tm-tour-x {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: filter 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tm-tour-primary {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.tm-tour-primary:hover { filter: brightness(1.05); }
+.tm-tour-secondary {
+  color: var(--text);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+.tm-tour-secondary:hover:not(:disabled) { border-color: var(--primary); }
+.tm-tour-secondary:disabled { opacity: 0.45; cursor: default; }
+.tm-tour-x {
+  color: var(--muted);
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+.tm-tour-x:hover { color: var(--text); text-decoration: underline; }
+
+/* ---- First-visit prompt (bottom-right toast) ---- */
+.tm-tour-prompt {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1900;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+.tm-tour-prompt-text {
+  flex: 1 1 100%;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* ---- Small screens: pin the tooltip to the bottom ---- */
+@media (max-width: 640px) {
+  .tm-tour-tip {
+    left: 16px !important;
+    right: 16px;
+    top: auto !important;
+    bottom: 16px;
+    transform: none !important;
+    width: auto;
+  }
+}
