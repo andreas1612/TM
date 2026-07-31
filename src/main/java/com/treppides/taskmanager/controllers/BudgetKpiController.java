@@ -41,6 +41,17 @@ public class BudgetKpiController {
         return service.buildKpi(resolveEmail(auth), year);
     }
 
+    /** Self-scoped invoice drill-down — any budget-holder can see their own invoice lines. */
+    @GetMapping("/me/invoice-details")
+    public List<Map<String, Object>> myInvoiceDetails(
+            Authentication auth,
+            @RequestParam(required = false) Integer year) {
+        String email = resolveEmail(auth);
+        int yr = year != null ? year : LocalDate.now().getYear();
+        String invoiceCode = service.resolveInvoiceCode(email, yr);
+        return budgetRepo.findInvoiceDetails(invoiceCode, yr);
+    }
+
     /** Admin-only: get budget KPI for any manager by invoice code. */
     @GetMapping("/{invoiceCode}")
     public BudgetKpiDTO byInvoiceCode(
@@ -72,23 +83,33 @@ public class BudgetKpiController {
         return budgetRepo.findInvoiceDetails(invoiceCode, yr);
     }
 
-    /** Admin-only: list fee adjustments for a manager. */
+    /** SUPERVISOR+: list managers for the fee-adjustment target picker. */
+    @GetMapping("/fee-managers")
+    public List<Map<String, Object>> feeManagers(
+            Authentication auth,
+            @RequestParam(required = false) Integer year) {
+        requireFeeAccess(auth);
+        int yr = year != null ? year : LocalDate.now().getYear();
+        return budgetRepo.findAllBudgetManagers(yr);
+    }
+
+    /** SUPERVISOR+: list fee adjustments for a manager. */
     @GetMapping("/fee-adjustments/{invoiceCode}")
     public List<Map<String, Object>> feeAdjustments(
             Authentication auth,
             @PathVariable String invoiceCode,
             @RequestParam(required = false) Integer year) {
-        requireAdmin(auth);
+        requireFeeAccess(auth);
         int yr = year != null ? year : LocalDate.now().getYear();
         return feeRepo.findByInvoiceCode(invoiceCode, yr);
     }
 
-    /** Admin-only: add a fee adjustment entry. */
+    /** SUPERVISOR+: add a fee adjustment entry. */
     @PostMapping("/fee-adjustments")
     public Map<String, Object> addFeeAdjustment(
             Authentication auth,
             @RequestBody Map<String, Object> body) {
-        requireAdmin(auth);
+        requireFeeAccess(auth);
         String feeType = (String) body.get("feeType");
         String invoiceCode = (String) body.get("invoiceCode");
         String managerName = (String) body.get("managerName");
@@ -112,12 +133,12 @@ public class BudgetKpiController {
         return feeRepo.insert(feeType, invoiceCode, managerName, monthNum, year, amount, entityName, country, enteredBy);
     }
 
-    /** Admin-only: delete a fee adjustment entry. */
+    /** SUPERVISOR+: delete a fee adjustment entry. */
     @DeleteMapping("/fee-adjustments/{id}")
     public Map<String, Object> deleteFeeAdjustment(
             Authentication auth,
             @PathVariable int id) {
-        requireAdmin(auth);
+        requireFeeAccess(auth);
         boolean deleted = feeRepo.deleteById(id);
         if (!deleted) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee adjustment not found");
@@ -129,6 +150,14 @@ public class BudgetKpiController {
         String email = resolveEmail(auth);
         if (!roleService.isFull(email)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FULL-tier access required");
+        }
+    }
+
+    private void requireFeeAccess(Authentication auth) {
+        String email = resolveEmail(auth);
+        if (!roleService.isSupervisorOrAbove(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "SUPERVISOR-tier or above required for fee management");
         }
     }
 

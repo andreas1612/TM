@@ -42,7 +42,11 @@ public class RoleService {
         "makyriacou@treppides.com",   // Marios Kyriakou — added 2026-07-29
         "edalitou@treppides.com",     // Evelyn Dalitou — added 2026-07-29
         "aandreou@treppides.com",     // Andreas Andreou — added 2026-07-29
-        "khadjiefrem@treppides.com"   // Kypros Hadjiefrem — added 2026-07-29
+        "khadjiefrem@treppides.com",  // Kypros Hadjiefrem — added 2026-07-29
+        "aeleftheriou@treppides.com", // A. Eleftheriou — added 2026-07-31
+        "ckallis@treppides.com",      // C. Kallis — added 2026-07-31
+        "ibeiti@treppides.com",       // I. Beiti — added 2026-07-31
+        "cchrysanthou@treppides.com"  // C. Chrysanthou — added 2026-07-31
     );
 
     /** FULL-tier emails (hard-coded for now; migrate to EMPLOYEES.hub_role later). */
@@ -60,7 +64,8 @@ public class RoleService {
         "avladimerou@treppides.com",
         "stavrostimotheou@treppides.com", // Stavros Timotheou — promoted STANDARD→FULL 2026-07-21
         "czampa@treppides.com",           // Christiana Zampa — added 2026-07-23
-        "kherakleous@treppides.com"       // K. Herakleous — added 2026-07-27
+        "kherakleous@treppides.com",      // K. Herakleous — added 2026-07-27
+        "alexis.d@treppides.com"          // Alexis D. — added 2026-07-31
     );
 
     // Feature keys align with the hub sidebar sections.
@@ -110,6 +115,12 @@ public class RoleService {
     public boolean isFull(String email) {
         Tier t = tierOf(email);
         return t == Tier.FULL || t == Tier.SUPER;
+    }
+
+    /** True for SUPERVISOR, FULL, and SUPER — gate for fee-adjustment CRUD. */
+    public boolean isSupervisorOrAbove(String email) {
+        Tier t = tierOf(email);
+        return t == Tier.SUPERVISOR || t == Tier.FULL || t == Tier.SUPER;
     }
 
     /** True only for SUPER users — the single gate for Financials data. */

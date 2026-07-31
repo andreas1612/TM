@@ -50,6 +50,17 @@ public class BudgetKpiService {
         return buildKpiFromBudgetInfo(budgetInfo, yr);
     }
 
+    /** Resolve email → invoice code without computing the full KPI. */
+    public String resolveInvoiceCode(String email, int year) {
+        String esoftCode = perfRepo.findCodeByEmail(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Employee not found in eSoft"));
+        Map<String, Object> budgetInfo = budgetRepo.findBudgetByEsoftCode(esoftCode, year)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No budget data for this employee"));
+        return (String) budgetInfo.get("invoice_code");
+    }
+
     private BudgetKpiDTO buildKpiFromBudgetInfo(Map<String, Object> budgetInfo, int yr) {
 
         String esoftCode   = nullSafe(budgetInfo.get("esoft_code"));
