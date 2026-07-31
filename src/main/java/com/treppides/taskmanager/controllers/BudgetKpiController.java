@@ -123,8 +123,9 @@ public class BudgetKpiController {
         if (feeType == null || invoiceCode == null || managerName == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing required fields");
         }
-        if (!"AUDIT".equals(feeType) && !"TAX".equals(feeType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "feeType must be AUDIT or TAX");
+        if (!java.util.Set.of("AUDIT","FCR","FRA","ICAS","TAX","VAT").contains(feeType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "feeType must be one of: AUDIT, FCR, FRA, ICAS, TAX, VAT");
         }
         if (monthNum < 1 || monthNum > 12) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "monthNum must be 1-12");

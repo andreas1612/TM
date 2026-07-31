@@ -57,7 +57,7 @@ public class FeeAdjustmentRepository {
         return jdbc.queryForList("""
             SELECT month_num,
                    SUM(CASE WHEN fee_type = 'AUDIT' THEN amount ELSE 0 END) AS audit_fees,
-                   SUM(CASE WHEN fee_type = 'TAX'   THEN amount ELSE 0 END) AS tax_fees
+                   SUM(CASE WHEN fee_type <> 'AUDIT' THEN amount ELSE 0 END) AS tax_fees
             FROM   InvoiceAllocation.dbo.fee_adjustments
             WHERE  invoice_code = ? AND year = ?
             GROUP  BY month_num
