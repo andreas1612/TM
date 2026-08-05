@@ -11,6 +11,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.InternetAddress;
 import java.util.List;
 
 @Service
@@ -203,6 +204,53 @@ public class NotificationService {
             log.info("Daily time-log reminder sent to: {}", employee.getEmail());
         } catch (Exception e) {
             log.error("Daily time-log reminder failed for: {}", employee.getEmail(), e);
+        }
+    }
+
+    /**
+     * Monthly chargeability reminder for employees below the threshold.
+     * CC's HR if a CC address is provided.
+     */
+    public void sendChargeabilityReminderEmail(String employeeEmail, String employeeName,
+                                                String monthLabel, double pct,
+                                                double actualHrs, double targetHrs,
+                                                String weeklyBreakdown, String ccEmail) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+            helper.setFrom("notifications@treppides.com");
+            helper.setTo(employeeEmail);
+            if (ccEmail != null && !ccEmail.isBlank()) {
+                helper.setCc(ccEmail);
+            }
+            helper.setSubject("Chargeability Review — " + monthLabel);
+
+            String body = """
+                Dear %s,
+
+                Your chargeability for %s was %.1f%% (%.1fh chargeable out of %.1fh available).
+
+                This is below the expected threshold. Please review your timesheets in eSoft
+                and ensure all chargeable hours have been recorded correctly.
+
+                Weekly breakdown:
+                %s
+                If you believe this is correct, no action is needed.
+
+                Kind regards,
+                Task Manager
+                K. Treppides & Co Ltd
+                """.formatted(
+                    employeeName, monthLabel, pct, actualHrs, targetHrs,
+                    weeklyBreakdown
+                );
+
+            helper.setText(body);
+            mailSender.send(mimeMessage);
+            log.info("Chargeability reminder sent to: {} (CC: {})", employeeEmail, ccEmail);
+        } catch (Exception e) {
+            log.error("Chargeability reminder email failed for: {}", employeeEmail, e);
         }
     }
 

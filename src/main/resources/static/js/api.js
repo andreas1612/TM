@@ -10,6 +10,11 @@ async function apiRequest(url, options = {}) {
 
   const text = await response.text();
 
+  if (response.status === 401) {
+    window.location.href = "/login.html";
+    return new Promise(() => {});   // never resolves — page is navigating away
+  }
+
   if (!response.ok) {
     throw new Error(text || `Request failed: ${response.status}`);
   }
