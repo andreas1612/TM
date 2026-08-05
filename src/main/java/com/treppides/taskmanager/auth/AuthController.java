@@ -120,8 +120,12 @@ public class AuthController {
                                          Authentication authentication,
                                          @RequestParam(required = false) String email) {
         Map<String, Object> result = new HashMap<>();
+        String callerEmail = user.getPreferredUsername().toLowerCase();
         if (email == null || email.isBlank()) {
-            email = user.getPreferredUsername().toLowerCase();
+            email = callerEmail;
+        } else if (!email.equalsIgnoreCase(callerEmail) && !roleService.isFull(callerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You can only query your own Graph profile");
         }
         result.put("email", email);
 

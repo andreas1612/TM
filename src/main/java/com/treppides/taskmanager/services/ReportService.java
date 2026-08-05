@@ -151,6 +151,12 @@ public class ReportService {
                 .toList();
     }
 
+    /** True if targetEmail is within the viewer's scope (same team, direct report, etc.). */
+    public boolean isInScope(String viewerEmail, String targetEmail) {
+        return resolveScopeEmails(viewerEmail).stream()
+                .anyMatch(e -> e.equalsIgnoreCase(targetEmail));
+    }
+
     /**
      * Combined per-team roll-up. Each task is counted once per team (COUNT DISTINCT),
      * so co-assignment within a team does not inflate the totals.

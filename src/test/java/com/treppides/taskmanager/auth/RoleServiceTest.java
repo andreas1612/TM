@@ -27,7 +27,8 @@ class RoleServiceTest {
     void superTierEmailsResolveSuper() {
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("apieri@treppides.com"));
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("DKATSIOLAS@treppides.com")); // case-insensitive
-        assertEquals(RoleService.Tier.SUPER, svc().tierOf("lpampaka@treppides.com"));
+        // lpampaka temporarily moved to STANDARD
+        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("lpampaka@treppides.com"));
         assertEquals(RoleService.Tier.SUPER, svc().tierOf("syiannaki@treppides.com"));
     }
 
@@ -50,7 +51,8 @@ class RoleServiceTest {
     void standardAdminsResolveStandard() {
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("afotiou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("rlambrou@treppides.com"));
-        assertEquals(RoleService.Tier.STANDARD, svc().tierOf("aeleftheriou@treppides.com"));
+        // aeleftheriou promoted to SUPERVISOR 2026-07-31
+        assertEquals(RoleService.Tier.SUPERVISOR, svc().tierOf("aeleftheriou@treppides.com"));
         assertEquals(RoleService.Tier.STANDARD, svc().tierOf("exenophontos@treppides.com"));
     }
 

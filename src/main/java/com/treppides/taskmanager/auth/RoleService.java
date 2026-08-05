@@ -26,9 +26,9 @@ public class RoleService {
     /** SUPER-tier emails — the ONLY people who see Financials. Superset of FULL. */
     private static final Set<String> SUPER_EMAILS = Set.of(
         "apieri@treppides.com",       // Andreas Pieri
-        "dkatsiolas@treppides.com",   // Daniel Katsiolas
-        "lpampaka@treppides.com",     // Lygia Pampaka
-        "syiannaki@treppides.com"     // Stelios Yiannaki
+        // "lpampaka@treppides.com",  // Lygia Pampaka — temporarily moved to STANDARD
+        "syiannaki@treppides.com",    // Stelios Yiannaki
+        "dkatsiolas@treppides.com"    // Daniel Katsiolas — promoted to SUPER 2026-08-05
     );
 
     /** SUPERVISOR-tier emails — STANDARD + CRM. */
@@ -56,8 +56,8 @@ public class RoleService {
         "msourmeli@treppides.com",
         "aparaskeva@treppides.com",
         "apieri@treppides.com",
-        "dkatsiolas@treppides.com",
-        "lpampaka@treppides.com",
+        // "dkatsiolas@treppides.com", // Daniel Katsiolas — moved to SUPERVISOR 2026-08-05
+        // "lpampaka@treppides.com", // temporarily moved to STANDARD
         "etheodorou@treppides.com",  // Eleni Theodorou — added 2026-07-06 (full access)
         "lsofokleous@treppides.com", // Loukia Sofokleous — upgraded to FULL 2026-07-10
         "cacheriotou@treppides.com",
