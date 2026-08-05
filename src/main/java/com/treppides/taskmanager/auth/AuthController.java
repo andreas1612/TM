@@ -53,7 +53,8 @@ public class AuthController {
     }
 
     @GetMapping("/api/me")
-    public Map<String, Object> me(Authentication auth) {
+    public Map<String, Object> me(Authentication auth,
+                                  jakarta.servlet.http.HttpServletResponse response) {
         if (auth == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
@@ -68,6 +69,10 @@ public class AuthController {
             Object details = auth.getDetails();
             name = details != null ? details.toString() : "";
         }
+        // Expose verified email as a response header so nginx auth_request_set
+        // can forward it to backend services (replaces untrusted X-User-Email).
+        response.setHeader("X-Auth-User", email);
+
         boolean isAdmin = adminService.isAdmin(email);
 
         Map<String, Object> result = new HashMap<>();
