@@ -47,9 +47,10 @@ public class AccessScopeResolver {
         String lower = email.toLowerCase();
         String ownCode = findCodeByEmail(lower);
 
-        // SUPER-tier or board → unrestricted. This resolver gates Financials, which is
-        // SUPER-only. FULL/STANDARD admins do NOT get unrestricted Financials data.
-        if (roleService.isSuper(lower) || boardService.isBoard(lower)) {
+        // FULL-tier (incl. SUPER) or board → unrestricted. This resolver gates
+        // Financials, which is open to FULL and SUPER (2026-08-06; previously
+        // SUPER-only). STANDARD/SUPERVISOR admins do NOT get unrestricted data.
+        if (roleService.isFull(lower) || boardService.isBoard(lower)) {
             return AccessScope.all(ownCode);
         }
 

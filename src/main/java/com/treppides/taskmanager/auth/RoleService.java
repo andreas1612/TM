@@ -12,9 +12,9 @@ import java.util.Set;
  * Never scatter role checks around the code — always ask this service.
  *
  * Tiers:
- *   SUPER      — FULL + Financials + CRM (a small, hand-picked set).
+ *   SUPER      — FULL + CRM (a small, hand-picked set).
  *   SUPERVISOR — STANDARD + CRM.
- *   FULL       — sees everything EXCEPT Financials, incl. CRM and simulator.
+ *   FULL       — sees everything, incl. Financials, CRM and simulator.
  *   STANDARD   — an admin who sees only the released base hub (no admin/reporting section).
  *   NONE       — not eligible (Access Restricted).
  */
@@ -23,7 +23,7 @@ public class RoleService {
 
     public enum Tier { SUPER, SUPERVISOR, FULL, STANDARD, NONE }
 
-    /** SUPER-tier emails — the ONLY people who see Financials. Superset of FULL. */
+    /** SUPER-tier emails — a hand-picked superset of FULL (adds CRM). */
     private static final Set<String> SUPER_EMAILS = Set.of(
         "apieri@treppides.com",       // Andreas Pieri
         "lpampaka@treppides.com",    // Lygia Pampaka — restored to SUPER
@@ -33,39 +33,61 @@ public class RoleService {
 
     /** SUPERVISOR-tier emails — STANDARD + CRM. */
     private static final Set<String> SUPERVISOR_EMAILS = Set.of(
-        "kmagou@treppides.com",       // Korina Magou
-        "ekasieri@treppides.com",     // Eleni Kasieri
-        "skyprianou@treppides.com",   // Stefanos Kyprianou — added 2026-07-29
-        "skaramouzas@treppides.com",  // Symeon Karamouzas — added 2026-07-29 (was STANDARD)
-        "egeorgiou@treppides.com",    // Elpida Georgiou — added 2026-07-29
-        "kmosfili@treppides.com",     // Katerina Mosfili — added 2026-07-29
-        "makyriacou@treppides.com",   // Marios Kyriakou — added 2026-07-29
-        "edalitou@treppides.com",     // Evelyn Dalitou — added 2026-07-29
-        "aandreou@treppides.com",     // Andreas Andreou — added 2026-07-29
-        "khadjiefrem@treppides.com",  // Kypros Hadjiefrem — added 2026-07-29
-        "aeleftheriou@treppides.com", // A. Eleftheriou — added 2026-07-31
-        "ckallis@treppides.com",      // C. Kallis — added 2026-07-31
-        "ibeiti@treppides.com",       // I. Beiti — added 2026-07-31
-        "cchrysanthou@treppides.com"  // C. Chrysanthou — added 2026-07-31
+        "mkourtella@treppides.com",    // Maria Kourtella
+        "etheodorou@treppides.com",    // Eleni Theodorou
+        "kphotiou@treppides.com",      // Kyriaki Photiou
+        "ciacovides@treppides.com",    // Constantinos Iacovides
+        "ckallis@treppides.com",       // Constantinos Kallis
+        "cmesimeri@treppides.com",     // Christina Mesimeri
+        "iagathokleous@treppides.com", // Ioanna Agathokleous
+        "ibeiti@treppides.com",        // Irene Beiti
+        "mefstathiou@treppides.com",   // Maria Efstathiou
+        "alouca@treppides.com",        // Nana Louca
+        "ninicolaou@treppides.com",    // Nicolina Nicolaou
+        "cchrysanthou@treppides.com",  // Chara Chrysanthou
+        "fkaikiti@treppides.com",      // Fani Kaikiti
+        "anikolaou@treppides.com",     // Andri Nikolaou
+        "mchartzioti@treppides.com",   // Marina Chartzioti
+        "pgenethliou@treppides.com",   // Periklis Genethliou
+        "dellina@treppides.com",       // Despina Ellina
+        "acharalambous@treppides.com", // Andreas D. Charalambous
+        "aeleftheriou@treppides.com",  // Andrea Eleftheriou
+        "ngeorgiou@treppides.com",     // Nikos Georgiou
+        "aphivou@treppides.com",       // Athineos Phivou
+        "ekasieri@treppides.com",      // Eleni Kasieri
+        "skyprianou@treppides.com",    // Stefanos Kyprianou
+        "kmagou@treppides.com",        // Korina Magou
+        "gpitsillidou@treppides.com",  // Georgia Pitsillidou
+        "skaramouzas@treppides.com",   // Symeon Karamouzas
+        "egeorgiou@treppides.com",     // Elpida Georgiou
+        "kmosfili@treppides.com",      // Katerina Mosfili
+        "makyriacou@treppides.com",    // Marios Kyriakou
+        "edalitou@treppides.com",      // Evelyn Dalitou
+        "aandreou@treppides.com",      // Andreas Andreou
+        "khadjiefrem@treppides.com"    // Kypros Hadjiefrem
     );
 
     /** FULL-tier emails (hard-coded for now; migrate to EMPLOYEES.hub_role later). */
     private static final Set<String> FULL_EMAILS = Set.of(
-        "gpanayiotou@treppides.com",
-        "syiannaki@treppides.com",
-        "msourmeli@treppides.com",
-        "aparaskeva@treppides.com",
-        "apieri@treppides.com",
-        // "dkatsiolas@treppides.com", // Daniel Katsiolas — moved to SUPERVISOR 2026-08-05
-        // "lpampaka@treppides.com", // temporarily moved to STANDARD
-        "etheodorou@treppides.com",  // Eleni Theodorou — added 2026-07-06 (full access)
-        "lsofokleous@treppides.com", // Loukia Sofokleous — upgraded to FULL 2026-07-10
-        "cacheriotou@treppides.com",
-        "avladimerou@treppides.com",
-        "stavrostimotheou@treppides.com", // Stavros Timotheou — promoted STANDARD→FULL 2026-07-21
-        "czampa@treppides.com",           // Christiana Zampa — added 2026-07-23
-        "kherakleous@treppides.com",      // K. Herakleous — added 2026-07-27
-        "alexis.d@treppides.com"          // Alexis D. — added 2026-07-31
+        "gnicolaou@treppides.com",        // George Nicolaou
+        "alexis.d@treppides.com",         // Alexis Dalitis
+        "syiannaki@treppides.com",        // Stelios Yiannaki
+        "gstrati@treppides.com",          // Giorgos Strati
+        "msourmeli@treppides.com",        // Maria Sourmeli
+        "avladimerou@treppides.com",      // Andreas Vladimerou
+        "kherakleous@treppides.com",      // Kyriakos Herakleous
+        "gpanayiotou@treppides.com",      // George Panayiotou
+        "nklappis@treppides.com",         // Nicolas Klappis
+        "cacheriotou@treppides.com",      // Chara Acheriotou
+        "aparaskeva@treppides.com",       // Andreas Paraskeva
+        "mapapanicolaou@treppides.com",   // Marios Papanicolaou
+        "mxenophontos@treppides.com",     // Maria Xenophontos
+        "cmerakli@treppides.com",         // Pambina Merakli
+        "czampa@treppides.com",           // Chara Zampa
+        "meleftheriades@treppides.com",   // Marios Eleftheriades
+        "chadjineophytou@treppides.com",  // Charalambos Hadjineophytou
+        "stavrostimotheou@treppides.com", // Stavros Timotheou
+        "afotiou@treppides.com"           // Antrea Fotiou
     );
 
     // Feature keys align with the hub sidebar sections.
@@ -76,15 +98,17 @@ public class RoleService {
     private static final Set<String> STANDARD_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
         "performance", "budgetkpi");
-    // FULL = everything the admin section offers EXCEPT Financials.
+    // FULL = everything the admin section offers, including Financials
+    // (Financials opened up to FULL tier 2026-08-06; previously SUPER-only).
     private static final Set<String> FULL_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
-        "performance", "budgetkpi", "crm", "simulator");
+        "performance", "budgetkpi", "crm", "simulator", "financials");
     // SUPERVISOR = STANDARD + CRM.
     private static final Set<String> SUPERVISOR_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
         "performance", "budgetkpi", "crm");
-    // SUPER = FULL + Financials + CRM.
+    // SUPER = same hub feature set as FULL (financials now included in both);
+    // SUPER remains distinct for board/Chamilo-admin checks, not the feature list.
     private static final Set<String> SUPER_FEATURES = Set.of(
         "home", "kb", "staff", "tools", "support",
         "performance", "budgetkpi", "crm", "financials", "simulator");
@@ -123,7 +147,7 @@ public class RoleService {
         return t == Tier.SUPERVISOR || t == Tier.FULL || t == Tier.SUPER;
     }
 
-    /** True only for SUPER users — the single gate for Financials data. */
+    /** True only for SUPER users. (Financials is gated by {@link #isFull}, not this.) */
     public boolean isSuper(String email) {
         return tierOf(email) == Tier.SUPER;
     }

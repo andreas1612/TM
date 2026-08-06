@@ -79,8 +79,9 @@ public class AuthController {
         result.put("email", email);
         result.put("name", name != null ? name : "");
         result.put("isAdmin", isAdmin);
-        // Financials gate: SUPER-tier or configured board members (app.board.emails). Matches
-        // AccessScopeResolver (unrestricted = SUPER OR board). FULL/STANDARD do NOT qualify.
+        // Board-membership flag: SUPER-tier or configured board members (app.board.emails).
+        // NOTE: this is NOT the Financials gate — Financials is gated by the "financials"
+        // feature (FULL + SUPER) and AccessScopeResolver (unrestricted = FULL OR board).
         result.put("isBoardMember", roleService.isSuper(email) || boardService.isBoard(email));
 
         // Hub access tier + visible feature set (single source of truth: RoleService).
