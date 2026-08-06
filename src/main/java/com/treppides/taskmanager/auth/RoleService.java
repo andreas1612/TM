@@ -128,7 +128,7 @@ public class RoleService {
         if (SUPER_EMAILS.contains(e)) return Tier.SUPER;
         if (SUPERVISOR_EMAILS.contains(e)) return Tier.SUPERVISOR;
         if (FULL_EMAILS.contains(e)) return Tier.FULL;
-        if (adminService.isAdmin(e)) return Tier.STANDARD;
+        if (e.endsWith("@treppides.com")) return Tier.STANDARD;
         return Tier.NONE;
     }
 
@@ -139,6 +139,16 @@ public class RoleService {
     public boolean isFull(String email) {
         Tier t = tierOf(email);
         return t == Tier.FULL || t == Tier.SUPER;
+    }
+
+    /**
+     * True for anyone allowed to view ALL-employee Performance / Budget KPI:
+     * FULL and SUPER (via {@link #isFull}) plus the HR team (see app.hr.emails).
+     * HR gets read-across visibility for reporting, but NOT the rest of the FULL
+     * feature set (CRM, Financials, simulator) nor fee-adjustment CRUD.
+     */
+    public boolean canViewAllReports(String email) {
+        return isFull(email) || hrService.isHr(email);
     }
 
     /** True for SUPERVISOR, FULL, and SUPER — gate for fee-adjustment CRUD. */

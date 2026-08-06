@@ -149,8 +149,8 @@ public class BudgetKpiController {
 
     private void requireAdmin(Authentication auth) {
         String email = resolveEmail(auth);
-        if (!roleService.isFull(email)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FULL-tier access required");
+        if (!roleService.canViewAllReports(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FULL-tier or HR access required");
         }
     }
 

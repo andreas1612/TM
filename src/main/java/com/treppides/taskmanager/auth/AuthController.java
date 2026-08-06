@@ -89,6 +89,9 @@ public class AuthController {
         RoleService.Tier tier = roleService.tierOf(email);
         result.put("tier", tier.name());
         result.put("features", roleService.features(tier));
+        // Read-across capability for Performance / Budget KPI: FULL, SUPER, or HR.
+        // Lets the HR team see everyone's cards without granting the full admin tier.
+        result.put("canViewAllReports", roleService.canViewAllReports(email));
         // Test-env only: tells the hub to show the "View as" switcher. False/absent in prod.
         result.put("simulator", simulatorEnabled);
 
