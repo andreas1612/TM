@@ -26,7 +26,7 @@ public class RoleService {
     /** SUPER-tier emails — the ONLY people who see Financials. Superset of FULL. */
     private static final Set<String> SUPER_EMAILS = Set.of(
         "apieri@treppides.com",       // Andreas Pieri
-        // "lpampaka@treppides.com",  // Lygia Pampaka — temporarily moved to STANDARD
+        "lpampaka@treppides.com",    // Lygia Pampaka — restored to SUPER
         "syiannaki@treppides.com",    // Stelios Yiannaki
         "dkatsiolas@treppides.com"    // Daniel Katsiolas — promoted to SUPER 2026-08-05
     );
