@@ -27,7 +27,8 @@ public class PerformanceService {
     }
 
     public PerformanceCardDTO buildCardByCode(String esoftCode, String period, Integer year, Integer month) {
-        Map<String, Object> target = repo.findTargetByCode(esoftCode)
+        int[] ym = primaryMonth(period, year, month);
+        Map<String, Object> target = repo.findEffectiveTarget(esoftCode, ym[0], ym[1])
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
         return buildCardFromTarget(target, period, year, month);
@@ -37,10 +38,21 @@ public class PerformanceService {
         String resolvedCode = repo.findCodeByEmail(email)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
-        Map<String, Object> target = repo.findTargetByCode(resolvedCode)
+        int[] ym = primaryMonth(period, year, month);
+        Map<String, Object> target = repo.findEffectiveTarget(resolvedCode, ym[0], ym[1])
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "NON_CHARGEABLE_ROLE"));
         return buildCardFromTarget(target, period, year, month);
+    }
+
+    /** The month whose target drives the card: the viewed month, or the latest month for YTD. */
+    private static int[] primaryMonth(String period, Integer year, Integer month) {
+        LocalDate today = LocalDate.now();
+        int yr = year != null ? year : today.getYear();
+        int mo = "ytd".equalsIgnoreCase(period)
+            ? (yr == today.getYear() ? today.getMonthValue() : 12)
+            : (month != null ? month : today.getMonthValue());
+        return new int[]{yr, mo};
     }
 
     private PerformanceCardDTO buildCardFromTarget(Map<String, Object> target, String period, Integer year, Integer month) {
@@ -140,15 +152,17 @@ public class PerformanceService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a manager");
         }
 
-        repo.findTargetByCode(managerCode)
+        int[] ym = primaryMonth(period, year, month);
+        repo.findEffectiveTarget(managerCode, ym[0], ym[1])
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NON_CHARGEABLE_ROLE"));
 
         // Reports come LIVE from eSoft (category4 supervisor field). Each is enriched with its
-        // datamart target row (level / target hours / location); skip any not yet in the roster.
+        // effective target for the viewed month (level / target hours / location); skip any not
+        // yet in the roster.
         List<Map<String, Object>> reports = new ArrayList<>();
         for (Map<String, Object> basic : repo.findDirectReportsByCode(managerCode)) {
             String rcode = (String) basic.get("esoft_code");
-            Optional<Map<String, Object>> t = repo.findTargetByCode(rcode);
+            Optional<Map<String, Object>> t = repo.findEffectiveTarget(rcode, ym[0], ym[1]);
             if (t.isEmpty()) continue;
             Map<String, Object> merged = new HashMap<>(t.get());
             merged.put("esoft_code", rcode);

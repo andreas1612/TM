@@ -116,6 +116,60 @@ public class PerformanceRepository {
         }
     }
 
+    /**
+     * Effective target for an employee AS OF a given year/month. Resolution order:
+     *   1) latest dbo.employee_level_history row with (eff_year,eff_month) on-or-before the month,
+     *   2) the base dbo.employee_levels row,
+     *   3) the level's default from dbo.level_targets ('Trainee' if unmapped).
+     * Same map shape as findTargetByCode, so callers are unchanged. With no history
+     * rows this returns exactly what findTargetByCode returns (values don't move).
+     */
+    public Optional<Map<String, Object>> findEffectiveTarget(String esoftCode, int year, int month) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+            SELECT e.employee_code                                 AS esoft_code,
+                   e.employee_name                                 AS employee_name,
+                   COALESCE(h.level, el.level, 'Trainee')          AS level,
+                   COALESCE(h.target_hrs_month, el.target_hrs_month, lt.target_hrs_month) AS target_hrs_month,
+                   COALESCE(h.target_hrs_week,  el.target_hrs_week,  lt.target_hrs_week)  AS target_hrs_week,
+                   COALESCE(h.location, el.location)               AS location,
+                   el.manager_name                                 AS manager_name,
+                   e.email                                         AS azure_email
+            FROM   dbo.esoft_employees e
+            LEFT JOIN dbo.employee_levels el ON el.esoft_code = e.employee_code
+            OUTER APPLY (
+                SELECT TOP 1 hh.level, hh.target_hrs_month, hh.target_hrs_week, hh.location
+                FROM   dbo.employee_level_history hh
+                WHERE  hh.esoft_code = e.employee_code
+                  AND  (hh.eff_year * 100 + hh.eff_month) <= (? * 100 + ?)
+                ORDER  BY hh.eff_year DESC, hh.eff_month DESC
+            ) h
+            LEFT JOIN dbo.level_targets lt ON lt.level = COALESCE(h.level, el.level, 'Trainee')
+            WHERE  e.employee_code = ?
+            """, year, month, esoftCode);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
+    /**
+     * Set an employee's target effective from a given month (and every later month,
+     * until the next change). Writes dbo.employee_level_history — history is preserved,
+     * so editing July never rewrites June.
+     */
+    public void upsertLevelHistory(String esoftCode, int effYear, int effMonth, String level,
+                                   Double hrsMonth, Double hrsWeek, String location, String updatedBy) {
+        int updated = jdbc.update("""
+            UPDATE dbo.employee_level_history
+               SET level=?, target_hrs_month=?, target_hrs_week=?, location=?, updated_at=GETDATE(), updated_by=?
+             WHERE esoft_code=? AND eff_year=? AND eff_month=?
+            """, level, hrsMonth, hrsWeek, location, updatedBy, esoftCode, effYear, effMonth);
+        if (updated == 0) {
+            jdbc.update("""
+                INSERT INTO dbo.employee_level_history
+                    (esoft_code, eff_year, eff_month, level, target_hrs_month, target_hrs_week, location, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)
+                """, esoftCode, effYear, effMonth, level, hrsMonth, hrsWeek, location, updatedBy);
+        }
+    }
+
     public Optional<Map<String, Object>> findActualHours(String esoftCode, LocalDate start, LocalDate end) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
             SELECT

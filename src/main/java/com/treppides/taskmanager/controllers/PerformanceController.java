@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -126,15 +127,31 @@ public class PerformanceController {
         if (level == null || level.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "level is required");
         }
-        Double hrsMonth = toDouble(body.get("targetHrsMonth"));
-        Double hrsWeek  = toDouble(body.get("targetHrsWeek"));
-        if ((hrsMonth != null && hrsMonth < 0) || (hrsWeek != null && hrsWeek < 0)) {
+        Double hrsWeek = toDouble(body.get("targetHrsWeek"));
+        if (hrsWeek != null && hrsWeek < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "target hours cannot be negative");
         }
+        // Weekly is the single input; derive the monthly figure (52 weeks / 12 months).
+        Double hrsMonth = hrsWeek == null ? null : Math.round(hrsWeek * (52.0 / 12.0) * 10000.0) / 10000.0;
         String location = body.get("location") == null ? null : body.get("location").toString().trim();
 
-        repo.upsertEmployeeLevel(code, level, hrsMonth, hrsWeek, location);
-        return service.buildCardByCode(code, "month", null, null);
+        // Effective from the month the editor was viewing (defaults to the current month).
+        LocalDate now = LocalDate.now();
+        int effYear  = body.get("year")  != null ? toInt(body.get("year"))  : now.getYear();
+        int effMonth = body.get("month") != null ? toInt(body.get("month")) : now.getMonthValue();
+        if (effMonth < 1 || effMonth > 12) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be 1-12");
+        }
+
+        repo.upsertLevelHistory(code, effYear, effMonth, level, hrsMonth, hrsWeek, location, resolveEmail(auth));
+        return service.buildCardByCode(code, "month", effYear, effMonth);
+    }
+
+    private static int toInt(Object v) {
+        try { return (int) Double.parseDouble(v.toString().trim()); }
+        catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid number: " + v);
+        }
     }
 
     private static Double toDouble(Object v) {
