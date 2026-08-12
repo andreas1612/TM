@@ -26,6 +26,9 @@ public class PerformanceCardDTO {
     private double actualHrs;
     private double availableHrsPeriod;
     private double targetHrsPeriod;
+    // Raw per-person targets (not period-scaled) — used to pre-fill the HR/SUPER target editor.
+    private double targetHrsWeek;
+    private double targetHrsMonth;
     private double chargeabilityPct;
     private double targetPct;
     private String badge;

@@ -92,6 +92,9 @@ public class AuthController {
         // Read-across capability for Performance / Budget KPI: FULL, SUPER, or HR.
         // Lets the HR team see everyone's cards without granting the full admin tier.
         result.put("canViewAllReports", roleService.canViewAllReports(email));
+        // Edit capability for performance targets (level / target hours / location):
+        // SUPER admins + HR only. Drives the inline edit controls in the hub.
+        result.put("canEditTargets", roleService.canEditTargets(email));
         // Test-env only: tells the hub to show the "View as" switcher. False/absent in prod.
         result.put("simulator", simulatorEnabled);
 

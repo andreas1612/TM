@@ -103,6 +103,55 @@ public class PerformanceController {
         return repo.findAllEmployees();
     }
 
+    /** HR/SUPER only: the level options (with default hours) for the target editor. */
+    @GetMapping("/levels")
+    public List<Map<String, Object>> levels(Authentication auth) {
+        requireEditor(auth);
+        return repo.listLevelTargets();
+    }
+
+    /**
+     * HR/SUPER only: edit an employee's performance target (level / target hours / location).
+     * Writes to the hand-maintained employee_levels override; team membership is NOT changed
+     * here (that is driven by eSoft category4). Returns the recomputed card.
+     */
+    @PutMapping("/target/{code}")
+    public PerformanceCardDTO updateTarget(
+            Authentication auth,
+            @PathVariable String code,
+            @RequestBody Map<String, Object> body) {
+        requireEditor(auth);
+
+        String level = body.get("level") == null ? null : body.get("level").toString().trim();
+        if (level == null || level.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "level is required");
+        }
+        Double hrsMonth = toDouble(body.get("targetHrsMonth"));
+        Double hrsWeek  = toDouble(body.get("targetHrsWeek"));
+        if ((hrsMonth != null && hrsMonth < 0) || (hrsWeek != null && hrsWeek < 0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "target hours cannot be negative");
+        }
+        String location = body.get("location") == null ? null : body.get("location").toString().trim();
+
+        repo.upsertEmployeeLevel(code, level, hrsMonth, hrsWeek, location);
+        return service.buildCardByCode(code, "month", null, null);
+    }
+
+    private static Double toDouble(Object v) {
+        if (v == null || v.toString().isBlank()) return null;
+        try { return Double.parseDouble(v.toString()); }
+        catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid number: " + v);
+        }
+    }
+
+    /** SUPER admins + HR only — the gate for editing performance targets. */
+    private void requireEditor(Authentication auth) {
+        if (!roleService.canEditTargets(resolveEmail(auth))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "HR or super-admin access required");
+        }
+    }
+
     private void requireAdmin(Authentication auth) {
         String email = resolveEmail(auth);
         if (!roleService.canViewAllReports(email)) {

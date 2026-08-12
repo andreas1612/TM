@@ -163,6 +163,16 @@ public class RoleService {
     }
 
     /**
+     * True for users allowed to EDIT performance targets (level / target hours / location)
+     * from the web app: SUPER-tier admins plus the HR team (app.hr.emails). Deliberately
+     * NARROWER than {@link #canViewAllReports} (which also includes FULL) — editing the
+     * firm-wide chargeability targets is restricted to HR and super admins only.
+     */
+    public boolean canEditTargets(String email) {
+        return isSuper(email) || hrService.isHr(email);
+    }
+
+    /**
      * True for users who should be global administrators in Chamilo (SUPER-tier + HR team).
      * Everyone else gets STUDENT. Used by the authorization server token customizer.
      */

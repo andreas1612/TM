@@ -50,6 +50,7 @@ public class PerformanceService {
         String employeeName = (String) target.get("employee_name");
         String level        = (String) target.get("level");
         double targetHrsWeek = toDouble(target.get("target_hrs_week"));
+        double targetHrsMonth = toDouble(target.get("target_hrs_month"));
 
         PerformanceCardDTO.PerformanceCardDTOBuilder builder = PerformanceCardDTO.builder()
             .esoftCode(esoftCode)
@@ -58,6 +59,8 @@ public class PerformanceService {
             .location(nullSafe(target.get("location")))
             .period(pi.start + "/" + pi.end)
             .weeksInPeriod(pi.weeks)
+            .targetHrsWeek(round2(targetHrsWeek))
+            .targetHrsMonth(round2(targetHrsMonth))
             .targetPct(100.0);
 
         if ("Maternity".equalsIgnoreCase(level)) {

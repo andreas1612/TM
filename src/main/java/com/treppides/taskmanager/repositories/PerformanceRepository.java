@@ -85,6 +85,37 @@ public class PerformanceRepository {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
+    /** The level -> default-hours options (for the target editor dropdown). */
+    public List<Map<String, Object>> listLevelTargets() {
+        return jdbc.queryForList("""
+            SELECT level, target_hrs_month, target_hrs_week
+            FROM   dbo.level_targets
+            ORDER  BY level
+            """);
+    }
+
+    /**
+     * Upsert a person's performance target (level / target hours / location) in the
+     * hand-maintained dbo.employee_levels override table. manager_name is intentionally
+     * NOT touched here (team membership is driven by eSoft category4). The nightly
+     * datamart sync never overwrites employee_levels, so edits persist.
+     */
+    public void upsertEmployeeLevel(String esoftCode, String level, Double hrsMonth,
+                                    Double hrsWeek, String location) {
+        int updated = jdbc.update("""
+            UPDATE dbo.employee_levels
+               SET level = ?, target_hrs_month = ?, target_hrs_week = ?, location = ?, updated_at = GETDATE()
+             WHERE esoft_code = ?
+            """, level, hrsMonth, hrsWeek, location, esoftCode);
+        if (updated == 0) {
+            jdbc.update("""
+                INSERT INTO dbo.employee_levels
+                    (esoft_code, level, target_hrs_month, target_hrs_week, location, updated_at)
+                VALUES (?, ?, ?, ?, ?, GETDATE())
+                """, esoftCode, level, hrsMonth, hrsWeek, location);
+        }
+    }
+
     public Optional<Map<String, Object>> findActualHours(String esoftCode, LocalDate start, LocalDate end) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
             SELECT
