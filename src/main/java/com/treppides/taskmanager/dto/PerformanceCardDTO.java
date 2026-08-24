@@ -29,6 +29,9 @@ public class PerformanceCardDTO {
     // Raw per-person targets (not period-scaled) — used to pre-fill the HR/SUPER target editor.
     private double targetHrsWeek;
     private double targetHrsMonth;
+    // Effective contracted hours/week (eSoft wrk_units_total, or an HR override) — the editor
+    // input from which the chargeable target is derived.
+    private double contractedHrsWeek;
     private double chargeabilityPct;
     private double targetPct;
     private String badge;

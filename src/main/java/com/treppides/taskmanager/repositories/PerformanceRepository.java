@@ -131,13 +131,14 @@ public class PerformanceRepository {
                    COALESCE(h.level, el.level, 'Trainee')          AS level,
                    COALESCE(h.target_hrs_month, el.target_hrs_month, lt.target_hrs_month) AS target_hrs_month,
                    COALESCE(h.target_hrs_week,  el.target_hrs_week,  lt.target_hrs_week)  AS target_hrs_week,
+                   COALESCE(h.contracted_hrs_week, e.wrk_units_total) AS contracted_hrs_week,
                    COALESCE(h.location, el.location)               AS location,
                    el.manager_name                                 AS manager_name,
                    e.email                                         AS azure_email
             FROM   dbo.esoft_employees e
             LEFT JOIN dbo.employee_levels el ON el.esoft_code = e.employee_code
             OUTER APPLY (
-                SELECT TOP 1 hh.level, hh.target_hrs_month, hh.target_hrs_week, hh.location
+                SELECT TOP 1 hh.level, hh.target_hrs_month, hh.target_hrs_week, hh.contracted_hrs_week, hh.location
                 FROM   dbo.employee_level_history hh
                 WHERE  hh.esoft_code = e.employee_code
                   AND  (hh.eff_year * 100 + hh.eff_month) <= (? * 100 + ?)
@@ -155,18 +156,21 @@ public class PerformanceRepository {
      * so editing July never rewrites June.
      */
     public void upsertLevelHistory(String esoftCode, int effYear, int effMonth, String level,
-                                   Double hrsMonth, Double hrsWeek, String location, String updatedBy) {
+                                   Double hrsMonth, Double hrsWeek, Double contractedWeek,
+                                   String location, String updatedBy) {
         int updated = jdbc.update("""
             UPDATE dbo.employee_level_history
-               SET level=?, target_hrs_month=?, target_hrs_week=?, location=?, updated_at=GETDATE(), updated_by=?
+               SET level=?, target_hrs_month=?, target_hrs_week=?, contracted_hrs_week=?, location=?,
+                   updated_at=GETDATE(), updated_by=?
              WHERE esoft_code=? AND eff_year=? AND eff_month=?
-            """, level, hrsMonth, hrsWeek, location, updatedBy, esoftCode, effYear, effMonth);
+            """, level, hrsMonth, hrsWeek, contractedWeek, location, updatedBy, esoftCode, effYear, effMonth);
         if (updated == 0) {
             jdbc.update("""
                 INSERT INTO dbo.employee_level_history
-                    (esoft_code, eff_year, eff_month, level, target_hrs_month, target_hrs_week, location, updated_at, updated_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)
-                """, esoftCode, effYear, effMonth, level, hrsMonth, hrsWeek, location, updatedBy);
+                    (esoft_code, eff_year, eff_month, level, target_hrs_month, target_hrs_week,
+                     contracted_hrs_week, location, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)
+                """, esoftCode, effYear, effMonth, level, hrsMonth, hrsWeek, contractedWeek, location, updatedBy);
         }
     }
 

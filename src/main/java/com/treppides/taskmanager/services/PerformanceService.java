@@ -55,6 +55,63 @@ public class PerformanceService {
         return new int[]{yr, mo};
     }
 
+    // ---- Target formula (Excel-derived) -------------------------------------
+    // Chargeable target hrs/week = contracted_weekly x (full-time rate / 38.5).
+    // The ratio's numerator is the status's full-time rate: Trainee carries extra
+    // deductions (training leave, half seminars); Maternity-on-leave = 0.
+    public static final double FULL_WEEK = 38.5;
+    private static final double MAT_YR1_CONTRACTED = 33.5;  // 38.5 - 1.0 h/day x 5
+    private static final double MAT_YR2_CONTRACTED = 36.0;  // 38.5 - 0.5 h/day x 5
+    public static final String MAT_LEAVE = "Maternity";      // on leave -> EXEMPT
+    public static final String MAT_YR1   = "Maternity Yr 1";
+    public static final String MAT_YR2   = "Maternity Yr 2";
+
+    private double weekRate(String level) {
+        for (Map<String, Object> lt : repo.listLevelTargets()) {
+            if (level.equalsIgnoreCase((String) lt.get("level"))) return toDouble(lt.get("target_hrs_week"));
+        }
+        return 0.0;
+    }
+
+    /** Chargeable target hrs/week for a status + contracted hours/week (Excel formula). */
+    public double computeTargetWeek(String status, double contractedWeek) {
+        if (status != null && status.equalsIgnoreCase(MAT_LEAVE)) return 0.0;
+        double base = (status != null && status.toLowerCase().startsWith("trainee"))
+            ? weekRate("Trainee") : weekRate("Normal");
+        return round4(contractedWeek * (base / FULL_WEEK));
+    }
+
+    /** Per-person status options (seed contracted + computed target) for the editor dropdown. */
+    public List<Map<String, Object>> statusDefaults(String code) {
+        int[] ym = primaryMonth("month", null, null);
+        double contracted = repo.findEffectiveTarget(code, ym[0], ym[1])
+            .map(t -> toDouble(t.get("contracted_hrs_week"))).filter(v -> v > 0).orElse(FULL_WEEK);
+        double nR = weekRate("Normal") / FULL_WEEK;
+        double tR = weekRate("Trainee") / FULL_WEEK;
+        List<Map<String, Object>> out = new ArrayList<>();
+        out.add(statusRow("Normal",    "Normal",                     FULL_WEEK,          nR));
+        out.add(statusRow("Trainee",   "Trainee",                    FULL_WEEK,          tR));
+        out.add(statusRow("Part-time", "Part-time",                  contracted,         nR));
+        out.add(statusRow(MAT_LEAVE,   "Maternity — on leave",       0.0,                0.0));
+        out.add(statusRow(MAT_YR1,     "Maternity — returned, Yr 1", MAT_YR1_CONTRACTED, nR));
+        out.add(statusRow(MAT_YR2,     "Maternity — returned, Yr 2", MAT_YR2_CONTRACTED, nR));
+        return out;
+    }
+
+    private static Map<String, Object> statusRow(String status, String label, double contracted, double ratio) {
+        double week = round4(contracted * ratio);
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("status", status);
+        m.put("label", label);
+        m.put("ratio", ratio);                         // frontend recomputes target = contracted x ratio
+        m.put("contractedWeek", round2(contracted));
+        m.put("targetWeek", week);
+        m.put("targetMonth", round2(week * 52.0 / 12.0));
+        return m;
+    }
+
+    private static double round4(double v) { return Math.round(v * 10000.0) / 10000.0; }
+
     private PerformanceCardDTO buildCardFromTarget(Map<String, Object> target, String period, Integer year, Integer month) {
         PeriodInfo pi = periodRange(period, year, month);
 
@@ -63,6 +120,7 @@ public class PerformanceService {
         String level        = (String) target.get("level");
         double targetHrsWeek = toDouble(target.get("target_hrs_week"));
         double targetHrsMonth = toDouble(target.get("target_hrs_month"));
+        double contractedWeek = toDouble(target.get("contracted_hrs_week"));
 
         PerformanceCardDTO.PerformanceCardDTOBuilder builder = PerformanceCardDTO.builder()
             .esoftCode(esoftCode)
@@ -73,6 +131,7 @@ public class PerformanceService {
             .weeksInPeriod(pi.weeks)
             .targetHrsWeek(round2(targetHrsWeek))
             .targetHrsMonth(round2(targetHrsMonth))
+            .contractedHrsWeek(round2(contractedWeek))
             .targetPct(100.0);
 
         if ("Maternity".equalsIgnoreCase(level)) {
@@ -92,7 +151,10 @@ public class PerformanceService {
 
         Optional<Map<String, Object>> timesheetOpt = repo.findActualHours(esoftCode, pi.start, pi.end);
 
-        double availHrsWeek = timesheetOpt.map(r -> toDouble(r.get("available_hrs_week"))).orElse(38.5);
+        // Contracted/available hours: prefer the effective value (HR override, else eSoft
+        // wrk_units_total from findEffectiveTarget); fall back to the timesheet query.
+        double availHrsWeek = contractedWeek > 0 ? contractedWeek
+            : timesheetOpt.map(r -> toDouble(r.get("available_hrs_week"))).orElse(38.5);
         double actualHrs    = timesheetOpt.map(r -> toDouble(r.get("actual_hrs"))).orElse(0.0);
         String jobTitle     = timesheetOpt.map(r -> nullSafe(r.get("job_title"))).orElse("");
         String team         = timesheetOpt.map(r -> nullSafe(r.get("team_name"))).orElse("");

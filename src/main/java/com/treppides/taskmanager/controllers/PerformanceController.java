@@ -104,7 +104,7 @@ public class PerformanceController {
         return repo.findAllEmployees();
     }
 
-    /** HR/SUPER only: the level options (with default hours) for the target editor. */
+    /** HR/SUPER only: the raw level -> default-hours rows (kept for reference/back-compat). */
     @GetMapping("/levels")
     public List<Map<String, Object>> levels(Authentication auth) {
         requireEditor(auth);
@@ -112,9 +112,20 @@ public class PerformanceController {
     }
 
     /**
-     * HR/SUPER only: edit an employee's performance target (level / target hours / location).
-     * Writes to the hand-maintained employee_levels override; team membership is NOT changed
-     * here (that is driven by eSoft category4). Returns the recomputed card.
+     * HR/SUPER only: the status options for THIS person, each with the seed contracted hours,
+     * the status ratio, and the computed chargeable target (week + month). Drives the editor.
+     */
+    @GetMapping("/target-defaults/{code}")
+    public List<Map<String, Object>> targetDefaults(Authentication auth, @PathVariable String code) {
+        requireEditor(auth);
+        return service.statusDefaults(code);
+    }
+
+    /**
+     * HR/SUPER only: set an employee's status + contracted hours, effective from the viewed
+     * month. The chargeable target is computed here (contracted x status ratio) and stored in
+     * employee_level_history — editing a month never rewrites earlier months. Team membership
+     * is NOT changed (that is driven by eSoft category4). Returns the recomputed card.
      */
     @PutMapping("/target/{code}")
     public PerformanceCardDTO updateTarget(
@@ -127,13 +138,16 @@ public class PerformanceController {
         if (level == null || level.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "level is required");
         }
-        Double hrsWeek = toDouble(body.get("targetHrsWeek"));
-        if (hrsWeek != null && hrsWeek < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "target hours cannot be negative");
+        Double contractedWeek = toDouble(body.get("contractedHrsWeek"));
+        if (contractedWeek != null && contractedWeek < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "contracted hours cannot be negative");
         }
-        // Weekly is the single input; derive the monthly figure (52 weeks / 12 months).
-        Double hrsMonth = hrsWeek == null ? null : Math.round(hrsWeek * (52.0 / 12.0) * 10000.0) / 10000.0;
+        double cw = contractedWeek == null ? 0.0 : contractedWeek;
         String location = body.get("location") == null ? null : body.get("location").toString().trim();
+
+        // Chargeable target derived server-side from status + contracted (single source of truth).
+        double targetWeek  = service.computeTargetWeek(level, cw);
+        double targetMonth = Math.round(targetWeek * (52.0 / 12.0) * 10000.0) / 10000.0;
 
         // Effective from the month the editor was viewing (defaults to the current month).
         LocalDate now = LocalDate.now();
@@ -143,7 +157,7 @@ public class PerformanceController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be 1-12");
         }
 
-        repo.upsertLevelHistory(code, effYear, effMonth, level, hrsMonth, hrsWeek, location, resolveEmail(auth));
+        repo.upsertLevelHistory(code, effYear, effMonth, level, targetMonth, targetWeek, cw, location, resolveEmail(auth));
         return service.buildCardByCode(code, "month", effYear, effMonth);
     }
 
