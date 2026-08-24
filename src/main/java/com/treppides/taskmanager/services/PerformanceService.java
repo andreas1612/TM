@@ -132,6 +132,7 @@ public class PerformanceService {
             .targetHrsWeek(round2(targetHrsWeek))
             .targetHrsMonth(round2(targetHrsMonth))
             .contractedHrsWeek(round2(contractedWeek))
+            .contractedOverride(round2(toDouble(target.get("contracted_override"))))
             .targetPct(100.0);
 
         if ("Maternity".equalsIgnoreCase(level)) {

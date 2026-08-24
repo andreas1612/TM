@@ -132,6 +132,7 @@ public class PerformanceRepository {
                    COALESCE(h.target_hrs_month, el.target_hrs_month, lt.target_hrs_month) AS target_hrs_month,
                    COALESCE(h.target_hrs_week,  el.target_hrs_week,  lt.target_hrs_week)  AS target_hrs_week,
                    COALESCE(h.contracted_hrs_week, e.wrk_units_total) AS contracted_hrs_week,
+                   h.contracted_hrs_week                           AS contracted_override,
                    COALESCE(h.location, el.location)               AS location,
                    el.manager_name                                 AS manager_name,
                    e.email                                         AS azure_email

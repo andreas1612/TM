@@ -32,6 +32,9 @@ public class PerformanceCardDTO {
     // Effective contracted hours/week (eSoft wrk_units_total, or an HR override) — the editor
     // input from which the chargeable target is derived.
     private double contractedHrsWeek;
+    // HR-saved contracted override for this month (0 if none) — lets the editor show a saved
+    // part-time figure but stay blank (prompting input) when nothing was ever set.
+    private double contractedOverride;
     private double chargeabilityPct;
     private double targetPct;
     private String badge;
